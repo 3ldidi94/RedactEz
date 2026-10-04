@@ -9,14 +9,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import pymupdf  # noqa: E402
 
-from pdf_redactor import Policy, RedactionOptions, get_backend  # noqa: E402
-from pdf_redactor.cli import main  # noqa: E402
-from pdf_redactor.detectors import (  # noqa: E402
+from redactez import Policy, RedactionOptions, get_backend  # noqa: E402
+from redactez.cli import main  # noqa: E402
+from redactez.detectors import (  # noqa: E402
     RULES_BY_KIND,
     detect_in_page,
     merge_candidates,
 )
-from pdf_redactor.matching import build_pattern, contains, iter_matches  # noqa: E402
+from redactez.matching import build_pattern, contains, iter_matches  # noqa: E402
 
 
 def make_pdf(path: Path, lines, *, widget=None, annot=None, meta=True) -> Path:

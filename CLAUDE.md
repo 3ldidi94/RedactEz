@@ -20,8 +20,8 @@ keywords for other locales rather than replacing them.
 ```bash
 python3 -m pip install -r requirements.txt   # PyMuPDF
 python3 -m unittest discover -s tests -q     # 73 tests, ~5 s
-python3 -m pdf_redactor --help
-python3 -m pdf_redactor --check-ocr          # Tesseract diagnostics
+python3 -m redactez --help
+python3 -m redactez --check-ocr          # Tesseract diagnostics
 python3 tests/make_sample.py /tmp/sample.pdf # test PDF (needs reportlab)
 ```
 
@@ -32,7 +32,7 @@ mandatory.
 ## Architecture
 
 ```
-pdf_redactor/
+redactez/
   textmap.py        PageText: page text + per-character boxes; geometry helpers
   matching.py       tolerant patterns (case, accents, hyphenation, spacing)
   detectors.py      detection rules + checksum validators
@@ -164,7 +164,7 @@ this format store text?*
 ## Adding a format
 
 ```python
-from pdf_redactor.backends.base import Backend, FileReport, register
+from redactez.backends.base import Backend, FileReport, register
 
 @register
 class DocxBackend(Backend):

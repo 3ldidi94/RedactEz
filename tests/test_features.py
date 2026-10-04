@@ -12,14 +12,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import pymupdf  # noqa: E402
 
-from pdf_redactor import ocr as ocr_module  # noqa: E402
-from pdf_redactor import ui as ui_module  # noqa: E402
-from pdf_redactor.backends import (  # noqa: E402
+from redactez import ocr as ocr_module  # noqa: E402
+from redactez import ui as ui_module  # noqa: E402
+from redactez.backends import (  # noqa: E402
     FileReport,
     RedactionOptions,
     get_backend,
 )
-from pdf_redactor.cli import (  # noqa: E402
+from redactez.cli import (  # noqa: E402
     UsageError,
     ask_candidates,
     check_output_location,
@@ -28,14 +28,14 @@ from pdf_redactor.cli import (  # noqa: E402
     main,
     resolve_output,
 )
-from pdf_redactor.detectors import RULES_BY_KIND, Candidate, Occurrence  # noqa: E402
-from pdf_redactor.matching import build_pattern, find_residual  # noqa: E402
-from pdf_redactor.policy import Policy, PolicyError, read_terms_file  # noqa: E402
-from pdf_redactor.progress import NullProgress, ProgressBar  # noqa: E402
-from pdf_redactor.textmap import merge_line_rects  # noqa: E402
-from pdf_redactor.watermark import DEFAULT_TEXT  # noqa: E402
+from redactez.detectors import RULES_BY_KIND, Candidate, Occurrence  # noqa: E402
+from redactez.matching import build_pattern, find_residual  # noqa: E402
+from redactez.policy import Policy, PolicyError, read_terms_file  # noqa: E402
+from redactez.progress import NullProgress, ProgressBar  # noqa: E402
+from redactez.textmap import merge_line_rects  # noqa: E402
+from redactez.watermark import DEFAULT_TEXT  # noqa: E402
 
-from test_redactor import make_pdf, text_of  # noqa: E402
+from test_core import make_pdf, text_of  # noqa: E402
 
 
 def make_scan(path: Path, lines) -> Path:

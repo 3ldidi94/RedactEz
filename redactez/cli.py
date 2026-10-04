@@ -441,7 +441,7 @@ def print_summary(reports: Sequence[FileReport], ui: UI) -> None:
 # --------------------------------------------------------------------------
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="pdf-redactor",
+        prog="redactez",
         description=(
             "Redact personal data from a PDF (or a directory of PDFs). Content "
             "is genuinely removed from the produced file; the original is never "
@@ -450,10 +450,10 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "Examples:\n"
-            "  pdf-redactor contract.pdf -s 'Jane Doe' -s 'jane@example.com'\n"
-            "  pdf-redactor folder/ -r --policy pii.json\n"
-            "  pdf-redactor scan.pdf --ocr force --ocr-language eng\n"
-            "  pdf-redactor contract.pdf --dry-run\n"
+            "  redactez contract.pdf -s 'Jane Doe' -s 'jane@example.com'\n"
+            "  redactez folder/ -r --policy pii.json\n"
+            "  redactez scan.pdf --ocr force --ocr-language eng\n"
+            "  redactez contract.pdf --dry-run\n"
         ),
     )
     io_group = parser.add_argument_group("input / output")
@@ -657,7 +657,7 @@ def run(argv: Optional[Sequence[str]], ui: UI) -> int:
     if not args.inputs:
         raise UsageError(
             "no document given",
-            hint="example: pdf-redactor contract.pdf -s 'Jane Doe'",
+            hint="example: redactez contract.pdf -s 'Jane Doe'",
         )
 
     if PDF_IMPORT_ERROR:

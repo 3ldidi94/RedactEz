@@ -59,13 +59,13 @@ def font(size: int, bold: bool = False):
 
 def run(args: list[str]) -> None:
     result = subprocess.run(
-        [sys.executable, "-m", "pdf_redactor", *args],
+        [sys.executable, "-m", "redactez", *args],
         cwd=ROOT,
         capture_output=True,
         text=True,
     )
     if result.returncode not in (0, 1):
-        raise SystemExit(f"pdf-redactor failed: {result.stderr}")
+        raise SystemExit(f"redactez failed: {result.stderr}")
 
 
 def render(pdf: Path, page: int = 0, top: float = 0.09, bottom: float = 0.42) -> Image.Image:

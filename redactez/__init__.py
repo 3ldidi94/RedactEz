@@ -1,4 +1,4 @@
-"""pdf_redactor — redact personal data from documents.
+"""redactez — redact personal data from documents.
 
 Sensitive content is genuinely removed from the produced file (not covered up),
 then replaced by a visible truncation pattern. The source file is never

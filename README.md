@@ -1,4 +1,4 @@
-# pdf-redactor
+# RedactEz
 
 Version 2.1 · Python ≥ 3.9 · one Python dependency (PyMuPDF)
 
@@ -111,13 +111,13 @@ flowchart TD
 pip install -r requirements.txt
 
 # I know what to mask
-python3 -m pdf_redactor contract.pdf -s "Jane Doe" -s "jane@example.com"
+python3 -m redactez contract.pdf -s "Jane Doe" -s "jane@example.com"
 
 # I don't: the tool detects candidates and asks
-python3 -m pdf_redactor contract.pdf --policy pii.json
+python3 -m redactez contract.pdf --policy pii.json
 
 # A whole directory, decisions reused across files
-python3 -m pdf_redactor documents/ -r --policy pii.json
+python3 -m redactez documents/ -r --policy pii.json
 ```
 
 Output: `contract.redacted.pdf` (or `documents.redacted/`), watermarked and
@@ -140,13 +140,13 @@ For scanned documents, add Tesseract (a system binary):
 sudo apt install tesseract-ocr tesseract-ocr-eng   # Debian / Ubuntu
 brew install tesseract tesseract-lang              # macOS
 winget install UB-Mannheim.TesseractOCR            # Windows (found even if not in PATH)
-python3 -m pdf_redactor --check-ocr                # verify the installation
+python3 -m redactez --check-ocr                # verify the installation
 ```
 
 Handy alias:
 
 ```bash
-alias pdf-redactor='python3 -m pdf_redactor'
+alias redactez='python3 -m redactez'
 ```
 
 ---
@@ -156,7 +156,7 @@ alias pdf-redactor='python3 -m pdf_redactor'
 ### 1. You know what to mask
 
 ```bash
-python3 -m pdf_redactor contract.pdf \
+python3 -m redactez contract.pdf \
     -s "Jean-François Dupont" \
     -s "jane@example.com" \
     -s "06 12 34 56 78"
@@ -172,7 +172,7 @@ across lines, or repeated spaces are all found. `--case-sensitive`,
 ### 2. You don't — detection mode (default when no `-s` is given)
 
 ```bash
-python3 -m pdf_redactor contract.pdf --policy pii.json
+python3 -m redactez contract.pdf --policy pii.json
 ```
 
 ```
@@ -202,7 +202,7 @@ question is never asked twice.
 ### 3. Batch processing
 
 ```bash
-python3 -m pdf_redactor documents/ -r --policy pii.json
+python3 -m redactez documents/ -r --policy pii.json
 ```
 
 Without `-o`, output goes to `documents.redacted/` — a **sibling** directory, so
@@ -213,7 +213,7 @@ re-redact its own output).
 ### 4. Scanned documents (OCR)
 
 ```bash
-python3 -m pdf_redactor scan.pdf --ocr force --ocr-language eng
+python3 -m redactez scan.pdf --ocr force --ocr-language eng
 ```
 
 | Mode | Effect |
@@ -249,9 +249,9 @@ image, so there is no object left to remove — not for a human in Acrobat, not
 for an automated tool.
 
 ```bash
-python3 -m pdf_redactor scan.pdf --flatten            # force, even on plain text
-python3 -m pdf_redactor contract.pdf --flatten never  # keep the text layer
-python3 -m pdf_redactor scan.pdf --verify-image       # OCR-based proof
+python3 -m redactez scan.pdf --flatten            # force, even on plain text
+python3 -m redactez contract.pdf --flatten never  # keep the text layer
+python3 -m redactez scan.pdf --verify-image       # OCR-based proof
 ```
 
 | `--flatten` | Effect |
@@ -276,7 +276,7 @@ anything about a rasterized document.
 ### 6. Dry run
 
 ```bash
-python3 -m pdf_redactor contract.pdf --dry-run
+python3 -m redactez contract.pdf --dry-run
 ```
 
 Full analysis and prompting, no file written.
@@ -288,7 +288,7 @@ Full analysis and prompting, no file written.
 **Send a batch of contracts to a third party**
 
 ```bash
-python3 -m pdf_redactor contracts/ -r --policy pii.json --mode label -v
+python3 -m redactez contracts/ -r --policy pii.json --mode label -v
 ```
 `--mode label` writes `[REDACTED]`, a fixed-width marker: the size of the gap
 does not hint at the length of the name.
@@ -296,7 +296,7 @@ does not hint at the length of the name.
 **Automated pipeline (CI, cron), no prompting**
 
 ```bash
-python3 -m pdf_redactor incoming/ -r -o outgoing/ \
+python3 -m redactez incoming/ -r -o outgoing/ \
     --auto EMAIL,IBAN,FR_SSN,CREDIT_CARD,PHONE \
     --report report.json -q
 echo $?   # 0 = all verified, 1 = at least one failure
@@ -305,13 +305,13 @@ echo $?   # 0 = all verified, 1 = at least one failure
 **Replay exactly the same decisions on a new batch**
 
 ```bash
-python3 -m pdf_redactor new_batch/ -r --policy pii.json --no-detect
+python3 -m redactez new_batch/ -r --policy pii.json --no-detect
 ```
 
 **Answer a GDPR access request (mask third parties)**
 
 ```bash
-python3 -m pdf_redactor client_file/ -r \
+python3 -m redactez client_file/ -r \
     --types NAME_WITH_TITLE,EMAIL,PHONE,ADDRESS \
     --min-confidence medium --policy third_parties.json
 ```
@@ -319,7 +319,7 @@ python3 -m pdf_redactor client_file/ -r \
 **Batch of poor-quality scans**
 
 ```bash
-python3 -m pdf_redactor scans/ -r --ocr force --ocr-dpi 300 --verify-image -v
+python3 -m redactez scans/ -r --ocr force --ocr-dpi 300 --verify-image -v
 ```
 
 ---
@@ -404,7 +404,7 @@ nothing away — at the cost of a slightly noisier page.
 
 ## Detected types
 
-`python3 -m pdf_redactor --list-types`
+`python3 -m redactez --list-types`
 
 | Type | Confidence | Check |
 |---|---|---|
@@ -578,7 +578,7 @@ Result
 ## Architecture
 
 ```
-pdf_redactor/
+redactez/
   textmap.py        PageText: page text + per-character boxes; geometry helpers
   matching.py       tolerant patterns (case, accents, hyphenation, spacing)
   detectors.py      detection rules + checksum validators
@@ -595,7 +595,7 @@ pdf_redactor/
 ### Adding a format
 
 ```python
-from pdf_redactor.backends.base import Backend, FileReport, register
+from redactez.backends.base import Backend, FileReport, register
 
 @register
 class DocxBackend(Backend):
@@ -614,7 +614,7 @@ progress and the CLI then work unchanged.
 
 ```python
 from pathlib import Path
-from pdf_redactor import RedactionOptions, get_backend
+from redactez import RedactionOptions, get_backend
 
 backend = get_backend(Path("contract.pdf"))
 report = backend.redact(
@@ -672,6 +672,10 @@ python3 docs/make_screenshots.py
 
 ## Changelog
 
+### Rename
+- The project is now **RedactEz**: package `redactez`, command `redactez`
+  (`python3 -m redactez`). Replaces `pdf_redactor` / `pdf-redactor`.
+
 ### 2.1 — fixes
 - **Data leak fixed**: answering `t` ("redact every value of this type") only
   redacted the current value; the other values of that type were skipped.
@@ -685,7 +689,7 @@ python3 docs/make_screenshots.py
   area, erasing all the text between them.
 - Accent folding covers every Latin letter (`Dvořák`, `Łódź`), not only French.
 - `LABELED_FIELD` no longer fires inside words (`Hôtel :`, `username:`).
-- `pdf-redactor .` crashed; two inputs producing the same output file now fail
+- `redactez .` crashed; two inputs producing the same output file now fail
   instead of overwriting each other; a single-character term in a policy file
   is refused; earlier `*.redacted.pdf` outputs in a scanned directory are
   skipped.

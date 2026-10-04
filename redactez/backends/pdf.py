@@ -6,7 +6,7 @@ stream. Drawing a black rectangle over text (pypdf, reportlab, pdf-lib, ...)
 removes nothing: the text is still extractable by copy and paste.
 
 Beyond the body text, this backend handles:
-- scanned pages, through OCR (see `pdf_redactor.ocr`);
+- scanned pages, through OCR (see `redactez.ocr`);
 - form field (widget) values;
 - annotation contents;
 - hyperlinks (often `mailto:` with the address in clear text);
