@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# Tool output — redacted copies and reports
+*.redacted.pdf
+*.redacted/
+report.json
+
+# Policy files hold personal data in CLEAR TEXT. Never commit one.
+*policy*.json
+pii*.json
