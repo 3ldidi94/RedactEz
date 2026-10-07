@@ -536,11 +536,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="rasterize the produced document so no object can be removed to "
              "reveal the redaction. auto = whenever an area sits on an image "
              "(default)")
-    irreversible_group.add_argument("--flatten-dpi", type=int, default=200,
-                                    help="rasterization resolution (default: 200)")
-    irreversible_group.add_argument("--flatten-quality", type=int, default=85,
+    irreversible_group.add_argument("--flatten-dpi", type=int, default=150,
+                                    help="rasterization resolution (default: 150)")
+    irreversible_group.add_argument("--flatten-quality", type=int, default=70,
                                     metavar="30..100",
-                                    help="JPEG quality; 100 = lossless (default: 85)")
+                                    help="JPEG quality; 100 = lossless (default: 70)")
     irreversible_group.add_argument("--verify-image", action="store_true",
                                     help="re-read the output with OCR to prove no "
                                          "term stayed readable (slow)")

@@ -91,6 +91,7 @@ flowchart TD
 - [Quick start](#quick-start)
 - [Installation](#installation)
 - [Usage](#usage)
+- [Web interface](#web-interface)
 - [Recipes](#recipes)
 - [Options](#options)
 - [Detected types](#detected-types)
@@ -260,8 +261,9 @@ python3 -m redactez scan.pdf --verify-image       # OCR-based proof
 | `always` | flattens every document |
 | `never` | no rasterization (pixel erasure still applies) |
 
-Tuning: `--flatten-dpi` (default 200) and `--flatten-quality` (JPEG, default 85;
-`100` = lossless).
+Tuning: `--flatten-dpi` (default 150) and `--flatten-quality` (JPEG, default 70;
+`100` = lossless). The defaults favour a compact file; raise them (e.g. 200 / 85)
+if the output must stay sharp for print.
 
 **Trade-off**: a flattened document is no longer selectable, searchable or
 accessible to screen readers. On a scan that costs nothing, since there was no
@@ -280,6 +282,27 @@ python3 -m redactez contract.pdf --dry-run
 ```
 
 Full analysis and prompting, no file written.
+
+---
+
+## Web interface
+
+A single-page web front-end lives in [`web/`](web/README.md). It drives the
+same engine as the CLI, in the same three steps: drop PDFs, review the detected
+values (tick or untick, add terms by hand), download the redacted copy (one
+PDF, or a ZIP for several files).
+
+```bash
+cd web && docker compose up -d        # -> http://localhost:8020
+# or, without Docker:
+pip install -r requirements.txt -r web/requirements.txt
+python3 web/webapp.py                 # -> http://localhost:8020
+```
+
+Live preview of the real page (pdf.js, served locally), EN/FR, three themes.
+Nothing is stored server-side, and a file whose final check still finds a term
+is withheld rather than delivered. Details, limits and reverse-proxy setup:
+[web/README.md](web/README.md).
 
 ---
 
@@ -384,8 +407,8 @@ nothing away — at the cost of a slightly noisier page.
 | Option | Purpose |
 |---|---|
 | `--flatten [MODE]` | `auto` (default), `always`, `never` — bare flag means `always` |
-| `--flatten-dpi` | rasterization resolution, 72–600 (default 200) |
-| `--flatten-quality` | JPEG quality 30–100; 100 = lossless (default 85) |
+| `--flatten-dpi` | rasterization resolution, 72–600 (default 150) |
+| `--flatten-quality` | JPEG quality 30–100; 100 = lossless (default 70) |
 | `--verify-image` | re-read the output with OCR, fail if a term is still readable |
 
 ### Misc
@@ -543,7 +566,7 @@ with `flattened: true`, `verified: true` proves nothing on its own —
 | `terms still extractable after redaction` | the term appears somewhere not covered (embedded file, locked field). The file must not be distributed: see the report warnings |
 | Data still readable in the output PDF | re-run with `--flatten` and `--verify-image`; flag the document as not distributable |
 | Output no longer selectable | automatic flattening (an area sat on an image): use `--flatten never` to keep the text |
-| Output file very large | `--flatten-dpi 150` or `--flatten-quality 70` |
+| Output file very large | `--flatten-dpi 120` or `--flatten-quality 60` |
 | `password protected PDF` | `qpdf --password=PW --decrypt source.pdf clear.pdf` |
 | `unreadable or damaged PDF` | `qpdf --replace-input --qdf file.pdf` then retry |
 | `values still to confirm, but standard input is not a terminal` | non-interactive run: add `--accept-all`, `--auto TYPES` or `--policy` |

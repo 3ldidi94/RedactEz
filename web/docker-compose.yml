@@ -1,0 +1,23 @@
+services:
+  redactez-web:
+    build:
+      context: ..            # repo root, so the redactez package is in scope
+      dockerfile: web/Dockerfile
+    image: redactez-web
+    container_name: redactez-web
+    environment:
+      - BIND=0.0.0.0   # bridge network + port mapping; with network_mode host keep 127.0.0.1
+    ports:
+      - "8020:8020"
+    # Uploaded documents only ever live in RAM.
+    tmpfs:
+      - /tmp:size=512m,mode=1777
+    read_only: true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8020/health').getcode()==200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

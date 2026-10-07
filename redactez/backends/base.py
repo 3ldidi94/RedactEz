@@ -65,8 +65,8 @@ class RedactionOptions:
     redact_images: bool = False  # erase pixels under every redacted area
     # flattening (rasterization): makes redaction irreversible
     flatten: str = "auto"  # auto | always | never
-    flatten_dpi: int = 200
-    flatten_quality: int = 85  # 100 = lossless (larger file)
+    flatten_dpi: int = 150
+    flatten_quality: int = 70  # 100 = lossless (much larger file)
     # OCR
     ocr: str = "auto"  # auto | force | never
     ocr_language: str = "auto"

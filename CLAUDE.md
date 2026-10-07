@@ -19,9 +19,10 @@ keywords for other locales rather than replacing them.
 
 ```bash
 python3 -m pip install -r requirements.txt   # PyMuPDF
-python3 -m unittest discover -s tests -q     # 73 tests, ~5 s
+python3 -m unittest discover -s tests -q     # 83 tests, ~5 s (web tests skip without Flask)
 python3 -m redactez --help
 python3 -m redactez --check-ocr          # Tesseract diagnostics
+python3 web/webapp.py                    # web UI on :8020 (needs web/requirements.txt)
 python3 tests/make_sample.py /tmp/sample.pdf # test PDF (needs reportlab)
 ```
 
@@ -44,6 +45,9 @@ redactez/
   backends/base.py  Backend ABC, RedactionOptions, FileReport, errors, registry
   backends/pdf.py   PDF implementation (PyMuPDF) — most of the work lives here
   cli.py            arguments, phases, prompting, summary
+web/
+  webapp.py         Flask front-end: /analyze (JSON) then /redact (PDF)
+  templates/        single page: upload, candidate review, pdf.js preview
 ```
 
 Flow: `cli` collects files → `backend.read_pages` → `detectors` → prompting →
@@ -144,6 +148,25 @@ this format store text?*
 - `Policy.decision()` must stay O(1) (folded-form index).
 - Rough figures: 50 pages of native text ≈ 1 s; OCR ≈ 1 s per page; flattening
   ≈ 0.2 s per page at 200 dpi.
+
+## Web front-end (`web/`)
+
+A thin layer over the library, like the CLI: it must never re-implement
+detection or redaction. Rules specific to it:
+
+- **Backends are created with `get_backend(path, cached=False)`.** The shared
+  instance keeps an extraction cache: on a server that would hold one visitor's
+  text in RAM for the next one.
+- **Nothing on disk beyond the request**: one `TemporaryDirectory` per request.
+  Test: `test_no_temp_files_left_behind`.
+- **A file that fails verification is withheld** (422), never delivered.
+- **No redacted value in logs or headers**: log the exception type only; the
+  `X-RedactEz-Report` header carries counts. Test:
+  `test_report_header_never_carries_a_redacted_value`.
+- The browser never stores terms or detected values (`localStorage` holds the
+  options only).
+- New `RedactionOptions` field: expose it in `_options()` and the form if it
+  makes sense on the web, and add its default to `DEFAULTS`.
 
 ## Conventions
 

@@ -1,0 +1,966 @@
+<!doctype html>
+<html lang="en" data-theme="oled">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>RedactEz</title>
+<link rel="icon" href="{{ url_for('static', filename='icon.svg') }}">
+<style>
+  :root{
+    --radius:12px; --accent:#0d9488; --accent-ink:#fff;
+    --bg:#000; --card:#0c0e10; --elev:#141719; --ink:#e9edf0; --muted:#8b949e;
+    --line:#20262b; --field:#0f1214; --err:#ff6b6b; --ok:#3fb950; --warn:#e3a008;
+    --paper:#fff; --paper-line:#e2e8f0; --logo-ink:#e9edf0;
+  }
+  :root[data-theme="grey"]{
+    --bg:#15171b; --card:#1e2126; --elev:#22262c; --ink:#e6e8ea; --muted:#9aa0a6;
+    --line:#31353b; --field:#22262c; --logo-ink:#e6e8ea;
+  }
+  :root[data-theme="white"]{
+    --bg:#f4f5f7; --card:#fff; --elev:#fafbfc; --ink:#1f2328; --muted:#6a7078;
+    --line:#e3e5e8; --field:#fff; --logo-ink:#0f172a; --err:#cf222e; --ok:#1a7f37;
+    --warn:#9a6700;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{overflow-x:hidden;background:var(--bg);color:var(--ink);
+       font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  a{color:var(--accent)}
+  code,.mono{font-family:"JetBrains Mono","Fira Code",Consolas,"DejaVu Sans Mono",monospace}
+  .wrap{max-width:1180px;margin:0 auto;padding:20px 16px 64px}
+  header{display:flex;align-items:center;gap:14px;margin-bottom:22px;flex-wrap:wrap}
+  header svg.logo{height:48px;width:195px;flex:none}
+  header .sp{flex:1}
+  header .ctl{display:flex;align-items:center;gap:8px}
+  .tagline{color:var(--muted);font-size:12.5px;line-height:1.3;margin:0;min-width:0}
+  select.mini{background:var(--field);color:var(--ink);border:1px solid var(--line);
+    border-radius:8px;padding:6px 10px;font-size:13px;width:auto;cursor:pointer}
+  select.mini option{background:var(--field);color:var(--ink)}
+  .cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;align-items:start}
+  @media (max-width:880px){.cols{grid-template-columns:minmax(0,1fr)}}
+  .stack{display:flex;flex-direction:column;gap:20px;min-width:0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px;min-width:0}
+  h2{font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);
+    margin:0 0 14px;display:flex;align-items:center;gap:8px}
+  h2 .n{display:inline-flex;width:20px;height:20px;border-radius:50%;background:var(--accent);
+    color:var(--accent-ink);font-size:11px;align-items:center;justify-content:center;letter-spacing:0}
+  label{display:block;font-weight:600;font-size:13px;margin:0 0 6px}
+  .hint{font-weight:400;color:var(--muted);font-size:13px}
+  input[type=text],input[type=number],select,textarea{width:100%;padding:9px 10px;
+    border:1px solid var(--line);border-radius:8px;background:var(--field);
+    color:var(--ink);font-size:14px;font-family:inherit}
+  textarea{resize:vertical;min-height:70px}
+  .field{margin:0 0 16px}
+  .row{display:flex;gap:14px;flex-wrap:wrap}.row>div{flex:1;min-width:130px}
+  .check{display:flex;align-items:flex-start;gap:8px;font-weight:600;font-size:13px;
+    margin:0 0 8px;cursor:pointer}
+  .check input{margin:3px 0 0}
+  .check .hint{display:block;font-size:12.5px}
+  .drop{border:1.6px dashed var(--line);border-radius:10px;padding:22px;
+    text-align:center;background:var(--field);cursor:pointer;transition:.15s}
+  .drop:hover,.drop.over{border-color:var(--accent);background:var(--elev)}
+  .drop:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .drop .big{font-weight:600;margin-bottom:2px}
+  .files{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
+  .files li{display:flex;align-items:center;gap:10px;background:var(--elev);cursor:pointer;
+    border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:14px}
+  .files li.active{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+  .files .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .files .sz{color:var(--muted);font-variant-numeric:tabular-nums;font-size:12px}
+  .files .sz.over{color:var(--err)}
+  .files .st{font-size:12px;white-space:nowrap}
+  .st.proc{color:var(--accent)}.st.done{color:var(--ok)}.st.failed{color:var(--err)}.st.queued{color:var(--muted)}
+  .files .rm{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:18px;line-height:1;padding:0 4px}
+  .files .rm:hover{color:var(--err)}
+  .listinfo{display:flex;justify-content:space-between;align-items:center;
+    margin-top:8px;font-size:12px;color:var(--muted);gap:10px}
+  .linkbtn{border:0;background:transparent;color:var(--accent);cursor:pointer;font-size:12px;padding:0}
+  details{margin:2px 0 16px}summary{cursor:pointer;font-weight:600;font-size:13px}
+  details>div{padding-top:4px}
+  details h3{font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);
+    margin:16px 0 10px;padding-top:12px;border-top:1px solid var(--line)}
+  details h3:first-child{border-top:0;padding-top:0;margin-top:10px}
+  .kinds{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:2px 14px}
+  .kinds .check{font-weight:500}
+  .conf{font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;border-radius:4px;
+    padding:0 5px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+  .conf.high{color:var(--err);border-color:color-mix(in srgb,var(--err) 50%,transparent)}
+  .conf.medium{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 50%,transparent)}
+  button.go,button.sec{width:100%;padding:12px;border-radius:9px;font-size:15px;font-weight:700;cursor:pointer}
+  button.go{border:0;background:var(--accent);color:var(--accent-ink)}
+  button.sec{border:1px solid var(--accent);background:transparent;color:var(--accent)}
+  button.go:disabled,button.sec:disabled{opacity:.55;cursor:default}
+  button.cancel{width:100%;padding:12px;border:1px solid var(--line);border-radius:9px;
+    background:transparent;color:var(--ink);font-size:15px;font-weight:600;cursor:pointer;margin-top:8px}
+  .msg{margin:14px 0 0;padding:10px 12px;border-radius:9px;font-size:14px;display:none;overflow-wrap:anywhere}
+  .msg.err{display:block;background:color-mix(in srgb,var(--err) 14%,transparent);border:1px solid var(--err);color:var(--err)}
+  .msg.ok{display:block;background:color-mix(in srgb,var(--ok) 14%,transparent);border:1px solid var(--ok);color:var(--ok)}
+  .msg.info{display:block;background:var(--elev);border:1px solid var(--line);color:var(--muted)}
+  .msg .h{display:block;margin-top:4px;opacity:.85;font-size:13px}
+  .prog{margin:14px 0 0;display:none}.prog.on{display:block}
+  .prog .bar{height:10px;background:var(--field);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+  .prog .fill{height:100%;width:0;background:var(--accent);transition:width .2s}
+  .prog .fill.indet{width:35%!important;animation:ind 1.1s ease-in-out infinite alternate}
+  @keyframes ind{from{margin-left:0}to{margin-left:65%}}
+  .prog .ptext{margin-top:6px;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+  /* candidates */
+  .cand-tools{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:0 0 10px;font-size:12.5px;color:var(--muted)}
+  .cand-tools .sp{flex:1}
+  .cands{max-height:440px;overflow:auto;border:1px solid var(--line);border-radius:10px;background:var(--field)}
+  .grp{border-bottom:1px solid var(--line)}
+  .grp:last-child{border-bottom:0}
+  .grp>.ghd{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--elev);
+    font-size:12.5px;font-weight:700;position:sticky;top:0;z-index:1}
+  .grp>.ghd .d{font-weight:400;color:var(--muted);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .c{display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid var(--line);cursor:pointer}
+  .c:hover{background:var(--elev)}
+  .c.focus{box-shadow:inset 3px 0 0 var(--accent)}
+  .c input{margin:3px 0 0;flex:none}
+  .c .body{min-width:0;flex:1}
+  .c .v{font-weight:600;overflow-wrap:anywhere}
+  .c .ctx{color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .c .ctx mark{background:color-mix(in srgb,var(--warn) 30%,transparent);color:inherit;border-radius:3px}
+  .c .meta{font-size:11.5px;color:var(--muted);white-space:nowrap;text-align:right}
+  .empty{padding:18px;text-align:center;color:var(--muted);font-size:13px}
+  /* preview */
+  .preview-card{position:sticky;top:12px}
+  @media (max-width:880px){.preview-card{position:static}}
+  .pvbar{display:flex;align-items:center;gap:8px;margin:0 0 10px;font-size:13px;color:var(--muted)}
+  .pvbar .sp{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pvbar button{border:1px solid var(--line);background:var(--field);color:var(--ink);
+    border-radius:7px;width:30px;height:28px;cursor:pointer;font-size:15px}
+  .pvbar button:disabled{opacity:.4;cursor:default}
+  .preview-card canvas{width:100%;height:auto;border:1px solid var(--line);border-radius:8px;background:#fff;display:block}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;margin:10px 0 0;font-size:12px;color:var(--muted)}
+  .legend i{display:inline-block;width:14px;height:10px;border-radius:2px;vertical-align:-1px;margin-right:5px}
+  .legend .r{background:#111;box-shadow:0 0 0 1px var(--muted)}.legend .u{border:1.5px dashed var(--warn)}
+  /* results */
+  .results{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
+  .results li{background:var(--elev);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:13px}
+  .results .t{display:flex;gap:8px;align-items:center;font-weight:600}
+  .results .t .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .results .w{color:var(--muted);margin:4px 0 0;padding-left:18px}
+  .badge{font-size:11.5px;border-radius:5px;padding:1px 6px;border:1px solid var(--line);white-space:nowrap}
+  .badge.ok{color:var(--ok);border-color:var(--ok)}
+  .badge.warn{color:var(--warn);border-color:var(--warn)}
+  .privacy{color:var(--muted);font-size:12.5px;margin:14px 0 0;display:flex;gap:8px}
+  .foot{color:var(--muted);font-size:12px;text-align:center;margin-top:30px}
+  .foot .privacy-foot{color:var(--ink);font-size:14px;font-weight:600;line-height:1.45;max-width:560px;margin:0 auto 16px}
+  .foot .ghline{display:flex;align-items:center;justify-content:center;gap:10px;margin:0 0 12px;flex-wrap:wrap}
+  .gh{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;
+    border:1px solid var(--line);border-radius:8px;color:var(--ink);text-decoration:none}
+  .gh:hover{background:var(--elev)}
+  .foot .ghurl{color:var(--muted);text-decoration:none;font-size:13px;overflow-wrap:anywhere}
+  .foot .ghurl:hover{color:var(--accent)}
+  .foot code{background:var(--field);padding:1px 5px;border-radius:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <svg class="logo" viewBox="0 0 520 128" role="img" aria-label="RedactEz">
+      <path d="M26 8h56l24 24v82a6 6 0 0 1-6 6H26a6 6 0 0 1-6-6V14a6 6 0 0 1 6-6z" fill="#fff" stroke="#0F172A" stroke-width="6" stroke-linejoin="round"/>
+      <path d="M82 8v18a6 6 0 0 0 6 6h18" fill="#E2E8F0" stroke="#0F172A" stroke-width="6" stroke-linejoin="round"/>
+      <text x="29" y="27" font-family="'JetBrains Mono','Fira Code',Consolas,'DejaVu Sans Mono',monospace" font-size="9" font-weight="700"><tspan fill="#0F172A">Redact</tspan><tspan fill="#0D9488">Ez</tspan></text>
+      <rect x="30" y="35" width="46" height="2" rx="1" fill="#0F172A"/>
+      <rect x="34" y="44" width="30" height="7" rx="3.5" fill="#94A3B8"/>
+      <rect x="34" y="58" width="60" height="10" rx="2" fill="#0F172A"/>
+      <rect x="34" y="75" width="44" height="7" rx="3.5" fill="#94A3B8"/>
+      <rect x="34" y="90" width="60" height="10" rx="2" fill="#0F172A"/>
+      <path d="M34 102l7 4-7 4" fill="none" stroke="#0D9488" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <rect x="48" y="106" width="12" height="4.5" rx="1" fill="#0D9488"/>
+      <text x="130" y="76" font-family="'JetBrains Mono','Fira Code',Consolas,'DejaVu Sans Mono',monospace" font-size="54" font-weight="700" letter-spacing="-1"><tspan style="fill:var(--logo-ink)">Redact</tspan><tspan fill="#0D9488">Ez</tspan></text>
+      <text x="132" y="104" font-family="'JetBrains Mono','Fira Code',Consolas,'DejaVu Sans Mono',monospace" font-size="14" fill="#8b949e" letter-spacing="2">REMOVE · NOT COVER</text>
+    </svg>
+    <p class="tagline" data-i18n="slogan">Personal data removed from your PDFs, not just covered. Nothing is stored.</p>
+    <div class="sp"></div>
+    <div class="ctl">
+      <select id="lang" class="mini" title="Language"><option value="en">EN</option><option value="fr">FR</option></select>
+      <select id="theme" class="mini" title="Theme">
+        <option value="oled" data-i18n="th_oled">Black (OLED)</option>
+        <option value="grey" data-i18n="th_grey">Grey</option>
+        <option value="white" data-i18n="th_white">White</option>
+      </select>
+    </div>
+  </header>
+
+  <div class="cols">
+    <div class="stack">
+      <!-- ============ 1. DOCUMENTS + DETECTION ============ -->
+      <section class="card">
+        <h2><span class="n">1</span><span data-i18n="h_docs">Documents</span></h2>
+        <div class="field">
+          <div class="drop" id="drop">
+            <div class="big" data-i18n="drop_big">Drop PDF files here</div>
+            <div class="hint" data-i18n="drop_small">or click to choose, several files allowed</div>
+          </div>
+          <input type="file" id="file" accept="application/pdf,.pdf" multiple hidden>
+          <ul class="files" id="filelist"></ul>
+          <div class="listinfo"><span id="summary"></span>
+            <button type="button" id="clearall" class="linkbtn" data-i18n="clear" hidden>Clear all</button></div>
+        </div>
+
+        <details id="det">
+          <summary data-i18n="l_adv_det">Advanced options</summary>
+          <div>
+            <h3 data-i18n="g_types">Data types to detect</h3>
+            <div class="kinds">
+              {% for k in kinds %}
+              <label class="check"><input type="checkbox" name="kinds" value="{{ k.kind }}" {% if k.default %}checked{% endif %}>
+                <span><span class="mono">{{ k.kind }}</span>
+                  <span class="hint" data-i18n="kd_{{ k.kind }}">{{ k.description }}</span></span></label>
+              {% endfor %}
+            </div>
+            <div class="field" style="margin-top:10px">
+              <label for="min_confidence" data-i18n="l_minconf">Minimum confidence</label>
+              <select id="min_confidence">
+                <option value="low" data-i18n="cf_low">low (show everything)</option>
+                <option value="medium" data-i18n="cf_medium">medium</option>
+                <option value="high" data-i18n="cf_high">high only</option>
+              </select>
+            </div>
+            <h3 data-i18n="g_ocr">OCR (scanned documents)</h3>
+            <div class="row">
+              <div class="field">
+                <label for="ocr" data-i18n="l_ocr">OCR</label>
+                <select id="ocr" class="opt">
+                  <option value="auto" data-i18n="ocr_auto">auto: pages without text</option>
+                  <option value="force" data-i18n="ocr_force">force: every page</option>
+                  <option value="never" data-i18n="ocr_never">never</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="ocr_language" data-i18n="l_ocrlang">Language</label>
+                <select id="ocr_language" class="opt">
+                  <option value="auto">auto</option>
+                  {% for l in ocr_langs %}<option value="{{ l }}">{{ l }}</option>{% endfor %}
+                </select>
+              </div>
+              <div class="field">
+                <label for="ocr_dpi">DPI</label>
+                <input type="number" id="ocr_dpi" class="opt" min="72" max="400" value="{{ d.ocr_dpi }}">
+              </div>
+            </div>
+            {% if not ocr_langs %}<p class="hint" data-i18n="no_ocr" style="margin:0">Tesseract is not installed on this server: scanned pages cannot be read.</p>{% endif %}
+          </div>
+        </details>
+
+        <button type="button" class="sec" id="analyze" data-i18n="btn_analyze">Detect personal data</button>
+        <div class="prog" id="aprog"><div class="bar"><div class="fill" id="afill"></div></div>
+          <div class="ptext" id="atext" aria-live="polite"></div></div>
+        <div class="msg" id="amsg" aria-live="polite"></div>
+      </section>
+
+      <!-- ============ 2. WHAT TO REDACT ============ -->
+      <section class="card">
+        <h2><span class="n">2</span><span data-i18n="h_what">What to redact</span></h2>
+        <div class="cand-tools">
+          <span id="ccount" data-i18n="no_cand_yet">Run the detection, or type the terms below.</span>
+          <span class="sp"></span>
+          <button type="button" class="linkbtn" id="checkall" data-i18n="check_all" hidden>Tick all</button>
+          <button type="button" class="linkbtn" id="uncheckall" data-i18n="uncheck_all" hidden>Untick all</button>
+        </div>
+        <div class="cands" id="cands" hidden></div>
+
+        <div class="field" style="margin-top:16px">
+          <label for="custom"><span data-i18n="l_custom">Terms to redact by hand</span>
+            <span class="hint" data-i18n="hint_custom">one per line: names, numbers, anything the detection missed</span></label>
+          <textarea id="custom" rows="3" spellcheck="false" placeholder="Jane Doe&#10;ACME-4421"></textarea>
+        </div>
+      </section>
+
+      <!-- ============ 3. OUTPUT ============ -->
+      <form class="card" id="form" action="{{ url_for('redact') }}" onsubmit="return false">
+        <h2><span class="n">3</span><span data-i18n="h_output">Output</span></h2>
+        <div class="row">
+          <div class="field">
+            <label for="mode" data-i18n="l_mode">Rendering</label>
+            <select id="mode" class="opt">
+              <option value="stars" data-i18n="md_stars">stars ****</option>
+              <option value="box" data-i18n="md_box">black box</option>
+              <option value="label" data-i18n="md_label">label</option>
+            </select>
+          </div>
+          <div class="field" style="display:flex;align-items:flex-end">
+            <label class="check" style="margin-bottom:10px"><input type="checkbox" id="watermark_on" class="opt" checked>
+              <span><span data-i18n="l_wm">Watermark</span>
+                <span class="hint" data-i18n="d_wm">so the copy is never mistaken for the original</span></span></label>
+          </div>
+        </div>
+
+        <details id="adv">
+          <summary data-i18n="l_adv">Advanced options</summary>
+          <div>
+            <h3 data-i18n="g_render">Rendering</h3>
+            <div class="row">
+              <div class="field" id="charf">
+                <label for="char" data-i18n="l_char">Stars character</label>
+                <input type="text" id="char" class="opt" maxlength="1" value="{{ d.char }}">
+              </div>
+              <div class="field" id="labelf">
+                <label for="label" data-i18n="l_label">Label text</label>
+                <input type="text" id="label" class="opt" maxlength="80" value="{{ d.label }}">
+              </div>
+            </div>
+            <div id="wmrow">
+              <div class="row">
+                <div class="field">
+                  <label for="watermark" data-i18n="l_wmtext">Watermark text</label>
+                  <input type="text" id="watermark" class="opt" maxlength="120" value="{{ d.watermark }}">
+                </div>
+                <div class="field">
+                  <label for="watermark_opacity"><span data-i18n="l_wmop">Watermark opacity</span> <span class="hint" id="opv"></span></label>
+                  <input type="range" id="watermark_opacity" class="opt" min="0" max="0.6" step="0.01"
+                         value="{{ d.watermark_opacity }}" style="width:100%;accent-color:var(--accent);margin-top:10px">
+                </div>
+              </div>
+              <label class="check"><input type="checkbox" id="watermark_footer" class="opt" checked>
+                <span data-i18n="l_footer">Dated footer line</span></label>
+            </div>
+
+            <h3 data-i18n="g_match">Matching</h3>
+            <label class="check"><input type="checkbox" id="whole_word" class="opt">
+              <span><span data-i18n="l_whole">Whole words only</span>
+                <span class="hint" data-i18n="d_whole">"Martin" no longer matches inside "Martinez"</span></span></label>
+            <label class="check"><input type="checkbox" id="case_sensitive" class="opt">
+              <span data-i18n="l_case">Case sensitive</span></label>
+            <label class="check"><input type="checkbox" id="no_accent_folding" class="opt">
+              <span data-i18n="l_accent">Do not treat "e" and "é" as equivalent</span></label>
+
+            <h3 data-i18n="g_irrev">Irreversibility</h3>
+            <label class="check"><input type="checkbox" id="redact_images" class="opt">
+              <span><span data-i18n="l_pixels">Erase pixels under every area</span>
+                <span class="hint" data-i18n="d_pixels">also wipes logos or photos behind the text</span></span></label>
+            <label class="check"><input type="checkbox" id="verify_image" class="opt">
+              <span><span data-i18n="l_vimg">Visual check by OCR</span>
+                <span class="hint" data-i18n="d_vimg">re-reads the output image: the only proof on a scan (slow)</span></span></label>
+            <div class="row" style="margin-top:8px">
+              <div class="field">
+                <label for="flatten" data-i18n="l_flatten">Flatten (rasterize)</label>
+                <select id="flatten" class="opt">
+                  <option value="auto" data-i18n="fl_auto">auto: when over an image</option>
+                  <option value="always" data-i18n="fl_always">always</option>
+                  <option value="never" data-i18n="fl_never">never</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="flatten_dpi">DPI</label>
+                <input type="number" id="flatten_dpi" class="opt" min="72" max="400" value="{{ d.flatten_dpi }}">
+              </div>
+              <div class="field">
+                <label for="flatten_quality" data-i18n="l_quality">JPEG quality</label>
+                <input type="number" id="flatten_quality" class="opt" min="30" max="100" value="{{ d.flatten_quality }}">
+              </div>
+            </div>
+
+            <h3 data-i18n="g_file">File</h3>
+            <label class="check"><input type="checkbox" id="keep_metadata" class="opt">
+              <span data-i18n="l_meta">Keep document metadata</span></label>
+            <div class="field">
+              <label for="suffix" data-i18n="l_suffix">Filename suffix</label>
+              <input type="text" id="suffix" class="opt" value="{{ d.suffix }}">
+            </div>
+          </div>
+        </details>
+
+        <button type="button" class="go" id="go" data-i18n="btn">Redact</button>
+        <button type="button" class="cancel" id="cancel" data-i18n="cancel" hidden>Cancel</button>
+        <div class="prog" id="prog"><div class="bar"><div class="fill" id="pfill"></div></div>
+          <div class="ptext" id="ptext" aria-live="polite"></div></div>
+        <div class="msg" id="msg" aria-live="polite"></div>
+        <ul class="results" id="results"></ul>
+        <p class="privacy">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1 2 3.5V8c0 3.5 2.6 6.4 6 7 3.4-.6 6-3.5 6-7V3.5L8 1Zm0 1.6 4.5 1.9V8c0 2.7-1.9 5-4.5 5.6C5.4 13 3.5 10.7 3.5 8V4.5L8 2.6Z"/></svg>
+          <span data-i18n="warn_read">Read the produced document before sharing it: automatic detection is never exhaustive.</span></p>
+      </form>
+    </div>
+
+    <!-- ============ PREVIEW ============ -->
+    <div class="card preview-card">
+      <h2 data-i18n="h_preview">Live preview</h2>
+      <div class="pvbar">
+        <button type="button" id="prev" aria-label="previous page">‹</button>
+        <span id="pinfo" class="mono">–</span>
+        <button type="button" id="next" aria-label="next page">›</button>
+        <span class="sp" id="pfile"></span>
+      </div>
+      <canvas id="pv" width="620" height="877"></canvas>
+      <div class="legend">
+        <span><i class="r"></i><span data-i18n="lg_red">will be removed</span></span>
+        <span><i class="u"></i><span data-i18n="lg_unt">detected, not ticked</span></span>
+      </div>
+      <p class="hint" data-i18n="pv_note" style="margin:10px 0 0">Approximate preview. Terms typed by hand are only matched by the engine, in the final file.</p>
+    </div>
+  </div>
+
+  <footer class="foot">
+    <p class="privacy-foot" data-i18n="privacy">No file is kept on the server. Each document is processed in a temporary folder that is wiped before the response is sent. Your terms are never saved.</p>
+    <p class="ghline">
+      <a class="gh" href="https://github.com/3ldidi94/AnonymEz" target="_blank" rel="noopener" title="GitHub" aria-label="GitHub">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+      </a>
+      <a class="ghurl" href="https://github.com/3ldidi94/AnonymEz" target="_blank" rel="noopener">https://github.com/3ldidi94/AnonymEz</a>
+    </p>
+    <p data-i18n-html="foot">Same engine as the CLI: <code>python3 -m redactez doc.pdf</code></p>
+    <p class="mono">v{{ version }}</p>
+  </footer>
+</div>
+
+<script src="{{ url_for('static', filename='vendor/pdf.min.js') }}"></script>
+<script>
+"use strict";
+/* ---------------- i18n ---------------- */
+const I18N={
+ en:{th_oled:"Black (OLED)",th_grey:"Grey",th_white:"White",
+  slogan:"Personal data removed from your PDFs, not just covered. Nothing is stored.",
+  h_docs:"Documents",drop_big:"Drop PDF files here",drop_small:"or click to choose, several files allowed",
+  clear:"Clear all",l_adv_det:"Advanced options",g_types:"Data types to detect",g_ocr:"OCR (scanned documents)",g_render:"Rendering",g_match:"Matching",g_irrev:"Irreversibility",g_file:"File",l_wmtext:"Watermark text",l_wmop:"Watermark opacity",l_minconf:"Minimum confidence",
+  cf_low:"low (show everything)",cf_medium:"medium",cf_high:"high only",l_ocr:"OCR",
+  ocr_auto:"auto: pages without text",ocr_force:"force: every page",ocr_never:"never",l_ocrlang:"Language",
+  no_ocr:"Tesseract is not installed on this server: scanned pages cannot be read.",
+  btn_analyze:"Detect personal data",h_what:"What to redact",
+  no_cand_yet:"Run the detection, or type the terms below.",check_all:"Tick all",uncheck_all:"Untick all",
+  l_custom:"Terms to redact by hand",hint_custom:"one per line: names, numbers, anything the detection missed",
+  h_output:"Output",l_mode:"Rendering",md_stars:"stars ****",md_box:"black box",md_label:"label",
+  l_char:"Stars character",l_label:"Label text",l_wm:"Watermark",d_wm:"so the copy is never mistaken for the original",
+  l_adv:"Advanced options",l_whole:"Whole words only",d_whole:"\"Martin\" no longer matches inside \"Martinez\"",
+  l_case:"Case sensitive",l_accent:"Do not treat \"e\" and \"é\" as equivalent",
+  l_pixels:"Erase pixels under every area",d_pixels:"also wipes logos or photos behind the text",
+  l_vimg:"Visual check by OCR",d_vimg:"re-reads the output image: the only proof on a scan (slow)",
+  l_meta:"Keep document metadata",l_footer:"Dated footer line",l_flatten:"Flatten (rasterize)",
+  fl_auto:"auto: when over an image",fl_always:"always",fl_never:"never",l_quality:"JPEG quality",
+  l_suffix:"Filename suffix",btn:"Redact",cancel:"Cancel",
+  warn_read:"Read the produced document before sharing it: automatic detection is never exhaustive.",
+  h_preview:"Live preview",lg_red:"will be removed",lg_unt:"detected, not ticked",
+  pv_note:"Approximate preview. Terms typed by hand are only matched by the engine, in the final file.",
+  privacy:"No file is kept on the server. Each document is processed in a temporary folder that is wiped before the response is sent. Your terms are never saved.",
+  foot:"Same engine as the CLI: <code>python3 -m redactez doc.pdf</code>",
+  kd_EMAIL:"email address",kd_FR_SSN:"French social security number (NIR)",kd_IBAN:"IBAN",
+  kd_CREDIT_CARD:"payment card number",kd_PHONE:"phone number",kd_DATE:"date (birth date, etc.)",
+  kd_LABELED_FIELD:"value following a personal-data label",kd_ADDRESS:"postal address",
+  kd_POSTAL_CODE_CITY:"postal code followed by a city",kd_NAME_WITH_TITLE:"name preceded by a title",
+  kd_UPPERCASE_NAME:"run of uppercase words (likely a surname)",kd_LICENSE_PLATE:"vehicle registration plate",
+  kd_IP:"IPv4 address",
+  st_queued:"queued",st_proc:"processing",st_done:"done",st_failed:"failed",st_analysed:"analysed",
+  files_word:"files",total_word:"total",need_file:"Please add at least one PDF file.",
+  need_terms:"Nothing to redact: tick detected values or type terms by hand.",
+  analysing:"Analysing",of:"of",ocr_slow:"scanned pages take about 1 s each",
+  found:"{n} value(s) to review, {s} ticked",none_found:"Nothing detected. Type the terms by hand if needed.",
+  analysed_ok:"Analysis done: {n} value(s) found.",redacting:"Redacting",
+  eta_prefix:"about",eta_suffix:"left",estimating:"estimating time...",zipping:"Preparing the ZIP...",
+  done:"Done. Your download is starting.",done_zip:"Done. Your ZIP download is starting.",
+  cancelled:"Cancelled",err:"Error",occ:"occurrence(s)",pages_w:"page(s)",verified:"verified",
+  flattened:"flattened",ocr_w:"OCR",vimg_ok:"OCR check passed",not_found:"no occurrence found",
+  occ_n:"{n}×",too_short:"term(s) too short (min {m} characters)",
+  low_note:"Low-confidence values are unticked by default.",page:"page",
+  no_preview:"(preview unavailable)"},
+ fr:{th_oled:"Noir (OLED)",th_grey:"Gris",th_white:"Blanc",
+  slogan:"Les données personnelles retirées de vos PDF, pas seulement masquées. Rien n'est conservé.",
+  h_docs:"Documents",drop_big:"Déposez vos fichiers PDF ici",drop_small:"ou cliquez pour choisir, plusieurs fichiers possibles",
+  clear:"Tout effacer",l_adv_det:"Options avancées",g_types:"Types de données à détecter",g_ocr:"OCR (documents scannés)",g_render:"Rendu",g_match:"Correspondance",g_irrev:"Irréversibilité",g_file:"Fichier",l_wmtext:"Texte du filigrane",l_wmop:"Opacité du filigrane",l_minconf:"Confiance minimale",
+  cf_low:"faible (tout afficher)",cf_medium:"moyenne",cf_high:"élevée uniquement",l_ocr:"OCR",
+  ocr_auto:"auto : pages sans texte",ocr_force:"forcer : toutes les pages",ocr_never:"jamais",l_ocrlang:"Langue",
+  no_ocr:"Tesseract n'est pas installé sur ce serveur : les pages scannées ne peuvent pas être lues.",
+  btn_analyze:"Détecter les données personnelles",h_what:"Quoi caviarder",
+  no_cand_yet:"Lancez la détection, ou saisissez les termes ci-dessous.",check_all:"Tout cocher",uncheck_all:"Tout décocher",
+  l_custom:"Termes à caviarder à la main",hint_custom:"un par ligne : noms, numéros, tout ce que la détection a manqué",
+  h_output:"Sortie",l_mode:"Rendu",md_stars:"étoiles ****",md_box:"pavé noir",md_label:"étiquette",
+  l_char:"Caractère des étoiles",l_label:"Texte de l'étiquette",l_wm:"Filigrane",d_wm:"pour que la copie ne soit jamais prise pour l'original",
+  l_adv:"Options avancées",l_whole:"Mots entiers uniquement",d_whole:"« Martin » ne correspond plus dans « Martinez »",
+  l_case:"Respecter la casse",l_accent:"Ne pas confondre « e » et « é »",
+  l_pixels:"Effacer les pixels sous chaque zone",d_pixels:"efface aussi logos ou photos derrière le texte",
+  l_vimg:"Contrôle visuel par OCR",d_vimg:"relit l'image du résultat : seule preuve sur un scan (lent)",
+  l_meta:"Conserver les métadonnées",l_footer:"Ligne de pied de page datée",l_flatten:"Aplatir (rastériser)",
+  fl_auto:"auto : si sur une image",fl_always:"toujours",fl_never:"jamais",l_quality:"Qualité JPEG",
+  l_suffix:"Suffixe du fichier",btn:"Caviarder",cancel:"Annuler",
+  warn_read:"Relisez le document produit avant de le partager : la détection automatique n'est jamais exhaustive.",
+  h_preview:"Aperçu en direct",lg_red:"sera supprimé",lg_unt:"détecté, non coché",
+  pv_note:"Aperçu approximatif. Les termes saisis à la main ne sont recherchés que par le moteur, dans le fichier final.",
+  privacy:"Aucun fichier n'est conservé sur le serveur. Chaque document est traité dans un dossier temporaire effacé avant l'envoi de la réponse. Vos termes ne sont jamais enregistrés.",
+  foot:"Même moteur que la CLI : <code>python3 -m redactez doc.pdf</code>",
+  kd_EMAIL:"adresse e-mail",kd_FR_SSN:"numéro de sécurité sociale (NIR)",kd_IBAN:"IBAN",
+  kd_CREDIT_CARD:"numéro de carte bancaire",kd_PHONE:"numéro de téléphone",kd_DATE:"date (naissance, etc.)",
+  kd_LABELED_FIELD:"valeur après un libellé de donnée personnelle",kd_ADDRESS:"adresse postale",
+  kd_POSTAL_CODE_CITY:"code postal suivi d'une ville",kd_NAME_WITH_TITLE:"nom précédé d'une civilité",
+  kd_UPPERCASE_NAME:"suite de mots en majuscules (nom probable)",kd_LICENSE_PLATE:"plaque d'immatriculation",
+  kd_IP:"adresse IPv4",
+  st_queued:"en attente",st_proc:"en cours",st_done:"OK",st_failed:"échec",st_analysed:"analysé",
+  files_word:"fichiers",total_word:"au total",need_file:"Ajoutez au moins un fichier PDF.",
+  need_terms:"Rien à caviarder : cochez des valeurs détectées ou saisissez des termes.",
+  analysing:"Analyse",of:"sur",ocr_slow:"une page scannée prend environ 1 s",
+  found:"{n} valeur(s) à vérifier, {s} cochée(s)",none_found:"Rien détecté. Saisissez les termes à la main si besoin.",
+  analysed_ok:"Analyse terminée : {n} valeur(s) trouvée(s).",redacting:"Caviardage",
+  eta_prefix:"environ",eta_suffix:"restant",estimating:"estimation du temps...",zipping:"Préparation du ZIP...",
+  done:"Terminé. Votre téléchargement démarre.",done_zip:"Terminé. Le téléchargement du ZIP démarre.",
+  cancelled:"Annulé",err:"Erreur",occ:"occurrence(s)",pages_w:"page(s)",verified:"vérifié",
+  flattened:"aplati",ocr_w:"OCR",vimg_ok:"contrôle OCR réussi",not_found:"aucune occurrence trouvée",
+  occ_n:"{n}×",too_short:"terme(s) trop court(s) (minimum {m} caractères)",
+  low_note:"Les valeurs de faible confiance sont décochées par défaut.",page:"page",
+  no_preview:"(aperçu indisponible)"}
+};
+const FR_ERR=[
+  [/^send exactly one PDF file per request$/,"envoyez un seul PDF par requête"],
+  [/^not a PDF: (.+)$/,"ce n'est pas un PDF : $1"],
+  [/^nothing to redact$/,"rien à caviarder"],
+  [/^tick some detected values or add terms by hand$/,"cochez des valeurs détectées ou ajoutez des termes à la main"],
+  [/^term\(s\) too short$/,"terme(s) trop court(s)"],
+  [/^too many terms \(max (\d+)\)$/,"trop de termes (maximum $1)"],
+  [/^too many pages \(max (\d+)\)$/,"trop de pages (maximum $1)"],
+  [/^split the document, or use the CLI, which has no limit$/,"découpez le document, ou utilisez la CLI, qui n'a pas de limite"],
+  [/^choose at least one data type to detect$/,"choisissez au moins un type de donnée à détecter"],
+  [/^upload too large.*/,"envoi trop volumineux (limite {{ max_mb }} Mo par fichier)"],
+  [/^password protected PDF$/,"PDF protégé par mot de passe"],
+  [/^unreadable or damaged PDF.*/,"PDF illisible ou endommagé"],
+  [/^document has no pages$/,"le document n'a aucune page"],
+  [/^verification failed: (\d+) term\(s\) still readable in the output, file withheld$/,
+   "échec de la vérification : $1 terme(s) encore lisible(s) dans le résultat, fichier non délivré"],
+  [/^enable 'Erase pixels.*/,"activez « Effacer les pixels sous chaque zone » et l'aplatissement « toujours », puis réessayez"],
+  [/^could not (analyse|process) the document$/,"impossible de traiter le document"],
+  [/^resolution must be (\d+) dpi or less$/,"la résolution doit être au maximum $1 dpi"],
+  [/^invalid value for (.+)$/,"valeur invalide pour $1"],
+  [/^OCR requested but.*/,"OCR demandé mais Tesseract est absent du serveur"],
+  [/^no occurrence found in this document.*/,"aucune occurrence trouvée dans ce document (orthographe ? scan sans OCR ?)"],
+  [/^document flattened at (\d+) dpi.*/,"document aplati à $1 dpi : caviardage irréversible, mais le texte n'est plus sélectionnable"]
+];
+const $=s=>document.querySelector(s);
+const t=(k,v)=>{let s=(I18N[lang][k]??I18N.en[k]??k);if(v)for(const x in v)s=s.replace("{"+x+"}",v[x]);return s;};
+function tErr(m){if(lang!=="fr"||!m)return m;
+  for(const [re,fr] of FR_ERR){const x=m.match(re);if(x)return fr.replace(/\$(\d)/g,(_,i)=>x[i]);}
+  return m;}
+function detectLang(){const n=(navigator.language||"en").toLowerCase();return n.indexOf("fr")===0?"fr":"en";}
+function lsGet(k){try{return localStorage.getItem(k);}catch(_){return null;}}
+function lsSet(k,v){try{localStorage.setItem(k,v);}catch(_){}}
+let lang=lsGet("rz_lang")||detectLang();
+function applyLang(){
+  document.documentElement.lang=lang;
+  document.querySelectorAll("[data-i18n]").forEach(e=>{const k=e.getAttribute("data-i18n");
+    if(I18N[lang][k]!=null)e.textContent=I18N[lang][k];});
+  document.querySelectorAll("[data-i18n-html]").forEach(e=>{const k=e.getAttribute("data-i18n-html");
+    if(I18N[lang][k]!=null)e.innerHTML=I18N[lang][k];});
+  $("#lang").value=lang;
+}
+$("#lang").addEventListener("change",e=>{lang=e.target.value;lsSet("rz_lang",lang);
+  applyLang();renderFiles();renderCands();});
+
+/* ---------------- theme ---------------- */
+let theme=lsGet("rz_theme")||"oled";
+function applyTheme(){document.documentElement.setAttribute("data-theme",theme);$("#theme").value=theme;}
+$("#theme").addEventListener("change",e=>{theme=e.target.value;lsSet("rz_theme",theme);applyTheme();});
+
+/* ---------------- state ---------------- */
+const MAX_BYTES={{ max_mb }}*1024*1024, MIN_TERM={{ min_term }};
+let files=[];          // {file, status, analysis}
+let cands=new Map();   // key -> {value,kind,confidence,checked,occ:Map(fileKey -> [{page,context,rects}])}
+let busy=false, previewIdx=0, pageNo=0, focusKey=null;
+const fkey=f=>f.name+"|"+f.size+"|"+f.lastModified;
+const ckey=value=>value.toLocaleLowerCase();
+function fmtSize(b){return b<1024?b+" B":b<1048576?(b/1024).toFixed(0)+" KB":(b/1048576).toFixed(1)+" MB";}
+
+/* ---------------- files ---------------- */
+const fileInput=$("#file"),drop=$("#drop"),filelist=$("#filelist");
+function renderFiles(){
+  filelist.innerHTML="";let total=0;
+  files.forEach((it,i)=>{
+    const f=it.file;total+=f.size;
+    const li=document.createElement("li");if(i===previewIdx)li.classList.add("active");
+    const nm=document.createElement("span");nm.className="nm";nm.textContent=f.name;
+    const st=document.createElement("span");st.className="st "+(it.status||"");
+    st.textContent=it.status?t("st_"+it.status):"";
+    const sz=document.createElement("span");sz.className="sz"+(f.size>MAX_BYTES?" over":"");sz.textContent=fmtSize(f.size);
+    const rm=document.createElement("button");rm.type="button";rm.className="rm";rm.textContent="×";
+    rm.setAttribute("aria-label","remove");
+    rm.onclick=e=>{e.stopPropagation();if(busy)return;removeFile(i);};
+    li.onclick=()=>selectFile(i,0);
+    li.append(nm,st,sz,rm);filelist.appendChild(li);
+  });
+  $("#summary").textContent=files.length?(files.length+" "+t("files_word")+", "+fmtSize(total)+" "+t("total_word")):"";
+  $("#clearall").hidden=files.length<2;
+}
+function setStatus(i,s){if(files[i]){files[i].status=s;renderFiles();}}
+function removeFile(i){
+  const k=fkey(files[i].file);files.splice(i,1);
+  for(const [ck,c] of cands){c.occ.delete(k);if(c.occ.size===0)cands.delete(ck);}
+  dropDoc(k);
+  if(previewIdx>=files.length)previewIdx=Math.max(0,files.length-1);
+  renderFiles();renderCands();selectFile(previewIdx,0);
+}
+function addFiles(list){
+  for(const f of list){
+    if(!/\.pdf$/i.test(f.name))continue;
+    if(!files.some(x=>fkey(x.file)===fkey(f)))files.push({file:f,status:"",analysis:null});
+  }
+  renderFiles();if(files.length)selectFile(Math.min(previewIdx,files.length-1),0);
+}
+$("#clearall").onclick=()=>{if(busy)return;files.forEach(x=>dropDoc(fkey(x.file)));files=[];cands.clear();
+  previewIdx=0;renderFiles();renderCands();selectFile(0,0);};
+drop.setAttribute("role","button");drop.setAttribute("tabindex","0");
+drop.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();fileInput.click();}});
+drop.addEventListener("click",()=>fileInput.click());
+fileInput.addEventListener("change",()=>{addFiles(fileInput.files);fileInput.value="";});
+["dragenter","dragover"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("over");}));
+["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("over");}));
+drop.addEventListener("drop",e=>{if(e.dataTransfer&&e.dataTransfer.files)addFiles(e.dataTransfer.files);});
+
+/* ---------------- options ---------------- */
+const OPT_IDS=["mode","char","label","watermark_on","watermark","watermark_opacity","whole_word",
+  "case_sensitive","no_accent_folding","redact_images","verify_image","keep_metadata","watermark_footer",
+  "flatten","flatten_dpi","flatten_quality","suffix","ocr","ocr_language","ocr_dpi","min_confidence"];
+function optsTo(fd){
+  for(const id of OPT_IDS){const el=document.getElementById(id);
+    if(el.type==="checkbox")fd.append(id,el.checked?"on":"off");else fd.append(id,el.value);}
+  document.querySelectorAll("input[name=kinds]:checked").forEach(el=>fd.append("kinds",el.value));
+}
+function saveSettings(){  // options only, never terms or detected values (personal data)
+  const v={};for(const id of OPT_IDS){const el=document.getElementById(id);v[id]=el.type==="checkbox"?el.checked:el.value;}
+  v.kinds=[...document.querySelectorAll("input[name=kinds]:checked")].map(e=>e.value);
+  lsSet("rz_settings",JSON.stringify(v));}
+function loadSettings(){let v;try{v=JSON.parse(lsGet("rz_settings")||"null");}catch(_){v=null;}
+  if(!v)return;
+  for(const id of OPT_IDS){const el=document.getElementById(id);if(!(id in v))continue;
+    if(el.type==="checkbox")el.checked=!!v[id];
+    else if(el.tagName!=="SELECT"||[...el.options].some(o=>o.value===v[id]))el.value=v[id];}
+  if(Array.isArray(v.kinds))document.querySelectorAll("input[name=kinds]").forEach(e=>e.checked=v.kinds.includes(e.value));}
+function syncOpts(){
+  const m=$("#mode").value;$("#charf").hidden=m!=="stars";$("#labelf").hidden=m!=="label";
+  $("#wmrow").hidden=!$("#watermark_on").checked;
+  $("#opv").textContent=Number($("#watermark_opacity").value).toFixed(2);
+  draw();}
+document.querySelectorAll(".opt,#min_confidence,input[name=kinds]").forEach(el=>{
+  el.addEventListener("input",()=>{syncOpts();saveSettings();});
+  el.addEventListener("change",()=>{syncOpts();saveSettings();});});
+
+/* ---------------- http ---------------- */
+let currentXhr=null,cancelReq=false;
+function post(url,fd,type,onprog){
+  return new Promise((resolve,reject)=>{
+    const xhr=new XMLHttpRequest();currentXhr=xhr;
+    xhr.open("POST",url);xhr.responseType=type;
+    xhr.upload.onprogress=ev=>{if(ev.lengthComputable&&onprog)onprog(ev.loaded/ev.total);};
+    xhr.onload=async()=>{
+      if(xhr.status>=200&&xhr.status<300)return resolve(xhr);
+      let body=null;
+      try{body=type==="blob"?JSON.parse(await xhr.response.text()):xhr.response;}catch(_){}
+      const e=new Error((body&&body.error)||("HTTP "+xhr.status));e.hint=body&&body.hint;reject(e);
+    };
+    xhr.onerror=()=>reject(new Error(lang==="fr"?"erreur réseau":"network error"));
+    xhr.onabort=()=>reject(new Error("__cancel__"));
+    xhr.send(fd);
+  });
+}
+function setMsg(el,kind,txt,hint){el.className="msg "+(kind||"");el.textContent=txt||"";
+  if(hint){const h=document.createElement("span");h.className="h";h.textContent="→ "+tErr(hint);el.appendChild(h);}}
+function fmtTime(sec){sec=Math.max(0,Math.round(sec));const m=Math.floor(sec/60),r=sec%60;return m>0?(m+":"+String(r).padStart(2,"0")):(r+"s");}
+
+/* ---------------- 1. analyse ---------------- */
+$("#analyze").addEventListener("click",async()=>{
+  const amsg=$("#amsg");
+  if(!files.length){setMsg(amsg,"err",t("need_file"));return;}
+  if(busy)return;busy=true;setMsg(amsg,"","");
+  const btn=$("#analyze");btn.disabled=true;
+  const prog=$("#aprog"),fill=$("#afill"),txt=$("#atext");prog.classList.add("on");
+  const N=files.length,failures=[];
+  for(let i=0;i<N;i++){
+    setStatus(i,"proc");
+    fill.style.width=(i/N*100).toFixed(1)+"%";fill.classList.add("indet");
+    txt.textContent=t("analysing")+" "+(i+1)+" "+t("of")+" "+N+" · "+files[i].file.name+" ("+t("ocr_slow")+")";
+    const fd=new FormData();optsTo(fd);fd.append("pdf",files[i].file,files[i].file.name);
+    try{
+      const xhr=await post("{{ url_for('analyze') }}",fd,"json",f=>{if(f<1){fill.classList.remove("indet");fill.style.width=((i+f*0.5)/N*100).toFixed(1)+"%";}else fill.classList.add("indet");});
+      ingest(files[i].file,xhr.response);files[i].analysis=xhr.response;setStatus(i,"analysed");
+    }catch(err){
+      setStatus(i,"failed");failures.push(files[i].file.name+": "+tErr(err.message)+(err.hint?" → "+tErr(err.hint):""));
+    }
+  }
+  fill.classList.remove("indet");prog.classList.remove("on");btn.disabled=false;busy=false;currentXhr=null;
+  renderCands();draw();
+  if(failures.length)setMsg(amsg,"err",failures.join(" | "));
+  else setMsg(amsg,"ok",cands.size?t("analysed_ok",{n:cands.size}):t("none_found"));
+});
+function ingest(file,res){
+  const k=fkey(file);
+  for(const [ck,c] of cands){c.occ.delete(k);}
+  for(const c of res.candidates){
+    // One entry per value: a value matched by two rules (EMAIL and LABELED_FIELD)
+    // is a single decision, filed under its most confident rule.
+    const key=ckey(c.value);let e=cands.get(key);
+    if(!e){e={value:c.value,kind:c.kind,confidence:c.confidence,checked:c.confidence!=="low",occ:new Map()};cands.set(key,e);}
+    else if(CONF_ORDER[c.confidence]>CONF_ORDER[e.confidence]){e.kind=c.kind;e.confidence=c.confidence;
+      if(c.confidence!=="low")e.checked=true;}
+    const prev=e.occ.get(k)||[];
+    const seen=new Set(prev.map(o=>o.page+":"+JSON.stringify(o.rects)));
+    e.occ.set(k,prev.concat(c.occurrences.filter(o=>!seen.has(o.page+":"+JSON.stringify(o.rects)))));
+  }
+  for(const [ck,c] of cands)if(c.occ.size===0)cands.delete(ck);
+}
+
+/* ---------------- 2. candidate list ---------------- */
+const candsEl=$("#cands");
+const CONF_ORDER={high:2,medium:1,low:0};
+function countOf(c){let n=0;for(const v of c.occ.values())n+=v.length;return n;}
+function renderCands(){
+  candsEl.innerHTML="";
+  const list=[...cands.entries()];
+  $("#checkall").hidden=$("#uncheckall").hidden=!list.length;
+  candsEl.hidden=!list.length&&!files.some(f=>f.analysis);
+  if(!files.some(f=>f.analysis)&&!list.length){$("#ccount").textContent=t("no_cand_yet");return;}
+  if(!list.length){candsEl.innerHTML='<div class="empty"></div>';candsEl.firstChild.textContent=t("none_found");
+    $("#ccount").textContent="";return;}
+  const groups=new Map();
+  for(const [k,c] of list){if(!groups.has(c.kind))groups.set(c.kind,[]);groups.get(c.kind).push([k,c]);}
+  const kinds=[...groups.keys()].sort((a,b)=>(CONF_ORDER[groups.get(b)[0][1].confidence]-CONF_ORDER[groups.get(a)[0][1].confidence])||a.localeCompare(b));
+  let ticked=0;
+  for(const kind of kinds){
+    const items=groups.get(kind).sort((a,b)=>countOf(b[1])-countOf(a[1])||a[1].value.localeCompare(b[1].value));
+    const g=document.createElement("div");g.className="grp";
+    const gh=document.createElement("label");gh.className="ghd";
+    const gcb=document.createElement("input");gcb.type="checkbox";
+    const on=items.filter(([,c])=>c.checked).length;
+    gcb.checked=on===items.length;gcb.indeterminate=on>0&&on<items.length;
+    gcb.onchange=()=>{items.forEach(([,c])=>c.checked=gcb.checked);renderCands();draw();};
+    const name=document.createElement("span");name.className="mono";name.textContent=kind;
+    const d=document.createElement("span");d.className="d";d.textContent=t("kd_"+kind);
+    const conf=document.createElement("span");conf.className="conf "+items[0][1].confidence;conf.textContent=items[0][1].confidence;
+    gh.append(gcb,name,d,conf);g.appendChild(gh);
+    for(const [key,c] of items){
+      if(c.checked)ticked++;
+      const row=document.createElement("div");row.className="c"+(key===focusKey?" focus":"");
+      const cb=document.createElement("input");cb.type="checkbox";cb.checked=c.checked;
+      cb.onclick=e=>e.stopPropagation();
+      cb.onchange=()=>{c.checked=cb.checked;renderCands();draw();};
+      const body=document.createElement("div");body.className="body";
+      const v=document.createElement("div");v.className="v";v.textContent=c.value;
+      const ctx=document.createElement("div");ctx.className="ctx";
+      const first=[...c.occ.values()][0][0];
+      ctxNode(ctx,first?first.context:"");
+      body.append(v,ctx);
+      const meta=document.createElement("div");meta.className="meta";
+      meta.textContent=t("occ_n",{n:countOf(c)})+(files.length>1?" · "+c.occ.size+"/"+files.length:"");
+      row.append(cb,body,meta);
+      row.onclick=()=>focusCand(key);
+      g.appendChild(row);
+    }
+    candsEl.appendChild(g);
+  }
+  $("#ccount").textContent=t("found",{n:list.length,s:ticked});
+}
+function ctxNode(el,text){  // "...left[value]right..." -> text + <mark>
+  const m=text.match(/^(.*?)\[(.*)\](.*)$/s);
+  if(!m){el.textContent=text;return;}
+  const mk=document.createElement("mark");mk.textContent=m[2];
+  el.append(document.createTextNode(m[1]),mk,document.createTextNode(m[3]));
+}
+$("#checkall").onclick=()=>{for(const c of cands.values())c.checked=true;renderCands();draw();};
+$("#uncheckall").onclick=()=>{for(const c of cands.values())c.checked=false;renderCands();draw();};
+function focusCand(key){
+  const c=cands.get(key);if(!c)return;focusKey=key;
+  let fi=files.findIndex(x=>c.occ.has(fkey(x.file)));
+  const cur=files[previewIdx]&&c.occ.get(fkey(files[previewIdx].file));
+  if(cur)fi=previewIdx;
+  if(fi<0)return;
+  const occ=c.occ.get(fkey(files[fi].file));
+  const onPage=occ.find(o=>o.page===pageNo);
+  renderCands();
+  selectFile(fi,(fi===previewIdx&&onPage)?pageNo:occ[0].page);
+}
+
+/* ---------------- preview (pdf.js) ---------------- */
+const pv=$("#pv"),ctx=pv.getContext("2d");
+if(window.pdfjsLib)pdfjsLib.GlobalWorkerOptions.workerSrc="{{ url_for('static', filename='vendor/pdf.worker.min.js') }}";
+const docs=new Map(),renders=new Map();let current=null,drawToken=0;
+async function getDoc(f){
+  const k=fkey(f);if(docs.has(k))return docs.get(k);
+  const p=(async()=>{const buf=await f.arrayBuffer();
+    return pdfjsLib.getDocument({data:buf,isEvalSupported:false}).promise;})();
+  docs.set(k,p);return p;
+}
+function dropDoc(k){const p=docs.get(k);if(p)p.then(d=>d.destroy()).catch(()=>{});docs.delete(k);
+  for(const rk of [...renders.keys()])if(rk.startsWith(k+"#"))renders.delete(rk);}
+async function renderPage(f,n){
+  const rk=fkey(f)+"#"+n;if(renders.has(rk))return renders.get(rk);
+  const doc=await getDoc(f);const page=await doc.getPage(n+1);
+  const vp1=page.getViewport({scale:1}),BW=820,scale=BW/vp1.width,vp=page.getViewport({scale});
+  const oc=document.createElement("canvas");oc.width=Math.round(vp.width);oc.height=Math.round(vp.height);
+  await page.render({canvasContext:oc.getContext("2d"),viewport:vp}).promise;
+  const res={canvas:oc,w:oc.width,h:oc.height,scale,pages:doc.numPages,pw:vp1.width,ph:vp1.height};
+  if(renders.size>24)renders.delete(renders.keys().next().value);
+  renders.set(rk,res);return res;
+}
+async function selectFile(i,n){
+  previewIdx=i;pageNo=n||0;renderFiles();
+  const tok=++drawToken;
+  const it=files[i];
+  if(!it||!window.pdfjsLib){current=null;draw();return;}
+  try{const r=await renderPage(it.file,pageNo);if(tok!==drawToken)return;current=r;}
+  catch(_){if(tok!==drawToken)return;current=null;}
+  draw();
+}
+$("#prev").onclick=()=>{if(current&&pageNo>0)selectFile(previewIdx,pageNo-1);};
+$("#next").onclick=()=>{if(current&&pageNo<current.pages-1)selectFile(previewIdx,pageNo+1);};
+function drawMock(W,H){
+  ctx.fillStyle="#e6e8ec";ctx.fillRect(48,48,150,34);ctx.fillStyle="#eef0f3";
+  [[48,130,700],[48,165,700],[48,200,480],[48,270,700],[48,305,700],[48,340,560],[48,410,700],[48,445,380]]
+    .forEach(([x,y,w])=>ctx.fillRect(x,y,w,14));
+  ctx.fillStyle="#111";ctx.fillRect(48+300,165,190,14);ctx.fillRect(48,305,240,14);
+}
+function draw(){
+  const W=current?current.w:820,H=current?current.h:1160;
+  if(pv.width!==W)pv.width=W;if(pv.height!==H)pv.height=H;
+  ctx.fillStyle="#fff";ctx.fillRect(0,0,W,H);
+  if(current)ctx.drawImage(current.canvas,0,0);else drawMock(W,H);
+  $("#pinfo").textContent=current?(t("page")+" "+(pageNo+1)+"/"+current.pages):"–";
+  $("#prev").disabled=!current||pageNo<=0;$("#next").disabled=!current||pageNo>=current.pages-1;
+  $("#pfile").textContent=files[previewIdx]?files[previewIdx].file.name:"";
+  if(current&&files[previewIdx])drawAreas(fkey(files[previewIdx].file),current.scale);
+  if($("#watermark_on").checked)drawWatermark(W,H,current?current.scale:W/595);
+}
+function drawAreas(k,s){
+  const mode=$("#mode").value,ch=($("#char").value||"*")[0],lab=$("#label").value||"[REDACTED]";
+  for(const [key,c] of cands){
+    const occ=c.occ.get(k);if(!occ)continue;
+    for(const o of occ){if(o.page!==pageNo)continue;
+      for(const r of o.rects){
+        const x=r[0]*s,y=r[1]*s,w=(r[2]-r[0])*s,h=(r[3]-r[1])*s;
+        if(c.checked){
+          ctx.fillStyle=mode==="box"?"#000":"#fff";ctx.fillRect(x,y-1,w,h+2);
+          if(mode!=="box"){
+            const size=Math.max(4*s,Math.min(16*s,h*0.68));ctx.font=size+"px Helvetica,Arial,sans-serif";
+            let txt=mode==="label"?lab:ch.repeat(Math.max(3,Math.min(c.value.length,40)));
+            if(mode==="stars"){const u=ctx.measureText(ch).width||1;txt=ch.repeat(Math.max(3,Math.min(txt.length,Math.floor(w/u))));}
+            let tw=ctx.measureText(txt).width,fs=size;
+            if(tw>w){fs=Math.max(3*s,size*w/tw);ctx.font=fs+"px Helvetica,Arial,sans-serif";tw=ctx.measureText(txt).width;}
+            ctx.fillStyle="#000";ctx.textBaseline="alphabetic";
+            ctx.fillText(txt,x+Math.max(0,(w-tw)/2),y+h-h*0.22);
+          }
+        }else{
+          ctx.save();ctx.setLineDash([4,3]);ctx.lineWidth=1.5;ctx.strokeStyle="#e3a008";
+          ctx.strokeRect(x-1,y-1,w+2,h+2);ctx.restore();
+        }
+        if(key===focusKey){ctx.save();ctx.lineWidth=2.5;ctx.strokeStyle="#0d9488";ctx.strokeRect(x-4,y-4,w+8,h+8);ctx.restore();}
+      }
+    }
+  }
+}
+function drawWatermark(W,H,s){
+  const txt=$("#watermark").value.trim();if(!txt)return;
+  const op=Number($("#watermark_opacity").value);
+  ctx.save();ctx.globalAlpha=op;ctx.fillStyle="rgb(184,28,28)";
+  const diag=Math.hypot(W,H);ctx.font="100px Helvetica,Arial,sans-serif";
+  const unit=ctx.measureText(txt).width/100||0.5;
+  const fs=Math.max(10*s,Math.min(96*s,diag*0.70/unit));
+  ctx.font=fs+"px Helvetica,Arial,sans-serif";
+  ctx.translate(W/2,H/2);ctx.rotate(-Math.atan2(H,W));
+  ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(txt,0,0);ctx.restore();
+  if($("#watermark_footer").checked){
+    ctx.save();ctx.globalAlpha=0.55;ctx.fillStyle="rgb(184,28,28)";ctx.font=(6.5*s)+"px Helvetica,Arial,sans-serif";
+    const d=new Date().toISOString().slice(0,10);
+    ctx.fillText(txt+" — "+d+" — working copy, not the original",12*s,H-8*s,W-24*s);ctx.restore();
+  }
+}
+
+/* ---------------- crc32 + minimal store ZIP (no dependency) ---------------- */
+const CRC_T=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;
+  for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
+function crc32(u8){let c=0xFFFFFFFF;for(let i=0;i<u8.length;i++)c=CRC_T[(c^u8[i])&0xFF]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
+function zipStore(entries){
+  const enc=new TextEncoder(),chunks=[],central=[];let offset=0,n=0;
+  const push=a=>{chunks.push(a);offset+=a.length;};
+  for(const {name,data} of entries){
+    const nb=enc.encode(name),crc=crc32(data),sz=data.length,lo=offset;
+    const lh=new Uint8Array(30),d=new DataView(lh.buffer);
+    d.setUint32(0,0x04034b50,true);d.setUint16(4,20,true);d.setUint16(6,0x0800,true);
+    d.setUint32(14,crc,true);d.setUint32(18,sz,true);d.setUint32(22,sz,true);d.setUint16(26,nb.length,true);
+    push(lh);push(nb);push(data);
+    const ch=new Uint8Array(46),cv=new DataView(ch.buffer);
+    cv.setUint32(0,0x02014b50,true);cv.setUint16(4,20,true);cv.setUint16(6,20,true);cv.setUint16(8,0x0800,true);
+    cv.setUint32(16,crc,true);cv.setUint32(20,sz,true);cv.setUint32(24,sz,true);cv.setUint16(28,nb.length,true);
+    cv.setUint32(42,lo,true);central.push({ch,nb});n++;
+  }
+  const cdStart=offset;let cdSize=0;
+  for(const {ch,nb} of central){push(ch);push(nb);cdSize+=ch.length+nb.length;}
+  const eo=new Uint8Array(22),ev=new DataView(eo.buffer);
+  ev.setUint32(0,0x06054b50,true);ev.setUint16(8,n,true);ev.setUint16(10,n,true);
+  ev.setUint32(12,cdSize,true);ev.setUint32(16,cdStart,true);push(eo);
+  return new Blob(chunks,{type:"application/zip"});
+}
+function download(blob,name){const url=URL.createObjectURL(blob);const a=document.createElement("a");
+  a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);}
+function cdName(xhr,fallback){const cd=xhr.getResponseHeader("Content-Disposition")||"";
+  const m=cd.match(/filename\*=UTF-8''([^;]+)/i)||cd.match(/filename="?([^";]+)"?/i);
+  try{return m?decodeURIComponent(m[1]):fallback;}catch(_){return fallback;}}
+
+/* ---------------- 3. redact ---------------- */
+function chosenTerms(){
+  const out=[];for(const c of cands.values())if(c.checked)out.push(c.value);
+  for(const line of $("#custom").value.split(/\r?\n/)){const s=line.trim();if(s)out.push(s);}
+  return [...new Set(out)];
+}
+function renderResult(name,rep,err){
+  const li=document.createElement("li");const tl=document.createElement("div");tl.className="t";
+  const nm=document.createElement("span");nm.className="nm";nm.textContent=name;tl.appendChild(nm);
+  const badge=(cls,txt)=>{const b=document.createElement("span");b.className="badge "+cls;b.textContent=txt;tl.appendChild(b);};
+  if(err){badge("warn",t("st_failed"));}
+  else{
+    badge(rep.occurrences?"ok":"warn",rep.occurrences+" "+t("occ"));
+    if(rep.verified)badge("ok","✓ "+t("verified"));
+    if(rep.verified_image)badge("ok","✓ "+t("vimg_ok"));
+    if(rep.flattened)badge("",t("flattened"));
+    if(rep.ocr_pages&&rep.ocr_pages.length)badge("",t("ocr_w")+" "+rep.ocr_pages.length+" "+t("pages_w"));
+  }
+  li.appendChild(tl);
+  const notes=err?[err]:(rep.warnings||[]).map(tErr);
+  if(notes.length){const ul=document.createElement("ul");ul.className="w";
+    notes.forEach(n=>{const x=document.createElement("li");x.textContent=n;ul.appendChild(x);});li.appendChild(ul);}
+  $("#results").appendChild(li);
+}
+const go=$("#go"),cancelBtn=$("#cancel"),msg=$("#msg"),prog=$("#prog"),pfill=$("#pfill"),ptext=$("#ptext");
+cancelBtn.addEventListener("click",()=>{cancelReq=true;if(currentXhr)currentXhr.abort();});
+go.addEventListener("click",async()=>{
+  if(busy)return;
+  if(!files.length){setMsg(msg,"err",t("need_file"));return;}
+  const terms=chosenTerms();
+  if(!terms.length){setMsg(msg,"err",t("need_terms"));return;}
+  if(terms.some(x=>x.length<MIN_TERM)){setMsg(msg,"err",t("too_short",{m:MIN_TERM}));return;}
+  const N=files.length;busy=true;cancelReq=false;setMsg(msg,"","");$("#results").innerHTML="";
+  go.hidden=true;cancelBtn.hidden=false;prog.classList.add("on");pfill.style.width="0%";
+  files.forEach((_,i)=>setStatus(i,"queued"));
+  const start=Date.now(),results=[],failures=[];let doneCount=0;
+  const paint=(idx,frac)=>{pfill.style.width=(Math.min(1,(doneCount+frac)/N)*100).toFixed(1)+"%";
+    let line=t("redacting")+" "+Math.min(idx+1,N)+" "+t("of")+" "+N;
+    if(N>1)line+=" - "+(doneCount>0?(t("eta_prefix")+" "+fmtTime((Date.now()-start)/doneCount/1000*(N-doneCount))+" "+t("eta_suffix")):t("estimating"));
+    ptext.textContent=line;};
+  paint(0,0);
+  for(let i=0;i<N;i++){
+    if(cancelReq)break;setStatus(i,"proc");
+    const f=files[i].file,fd=new FormData();optsTo(fd);fd.append("terms",JSON.stringify(terms));fd.append("pdf",f,f.name);
+    try{
+      const xhr=await post(go.form?go.form.action:"{{ url_for('redact') }}",fd,"blob",p=>paint(i,p*0.4));
+      let rep={};try{rep=JSON.parse(xhr.getResponseHeader("X-RedactEz-Report")||"{}");}catch(_){}
+      const name=cdName(xhr,f.name.replace(/\.pdf$/i,"")+".redacted.pdf");
+      results.push({name,blob:xhr.response});renderResult(name,rep,null);setStatus(i,"done");
+    }catch(err){
+      if(err.message==="__cancel__"){setStatus(i,"queued");break;}
+      const m=tErr(err.message)+(err.hint?" → "+tErr(err.hint):"");
+      failures.push(f.name+": "+m);renderResult(f.name,null,m);setStatus(i,"failed");
+    }
+    doneCount++;paint(doneCount,0);
+  }
+  busy=false;currentXhr=null;go.hidden=false;cancelBtn.hidden=true;prog.classList.remove("on");
+  if(cancelReq){setMsg(msg,"info",t("cancelled"));return;}
+  if(!results.length){setMsg(msg,"err",t("err")+": "+failures.join(" | "));return;}
+  if(results.length===1&&!failures.length){download(results[0].blob,results[0].name);setMsg(msg,"ok",t("done"));return;}
+  ptext.textContent=t("zipping");prog.classList.add("on");pfill.style.width="100%";
+  const entries=[],used=new Set();
+  for(const r of results){let nm=r.name,n=1;while(used.has(nm))nm=r.name.replace(/\.pdf$/i,"_"+(n++)+".pdf");used.add(nm);
+    entries.push({name:nm,data:new Uint8Array(await r.blob.arrayBuffer())});}
+  download(zipStore(entries),"redactez_"+(($("#suffix").value||"redacted").replace(/[^\w.\-]+/g,"_"))+".zip");
+  prog.classList.remove("on");
+  let m=t("done_zip");if(failures.length)m+=" ("+failures.length+" "+t("st_failed")+")";
+  setMsg(msg,failures.length?"err":"ok",m);
+});
+
+/* ---------------- init ---------------- */
+loadSettings();applyTheme();applyLang();renderFiles();renderCands();syncOpts();
+</script>
+</body>
+</html>
