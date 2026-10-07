@@ -109,6 +109,29 @@ class TestDetectors(unittest.TestCase):
             self.assertIn("DUPONT", values)
             self.assertIn("06 12 34 56 78", values)
 
+    def test_names_do_not_run_onto_the_next_line(self):
+        # "Mme Jane DOE" then "Né le ..." on the next line: the name used to
+        # swallow "Né", because the separator between name words was \s+.
+        with tempfile.TemporaryDirectory() as tmp:
+            src = make_pdf(
+                Path(tmp) / "a.pdf",
+                ["Client : Mme Jane DOE", "Né le 12/03/1984", "Ref DUPONT", "ATTESTATION"],
+            )
+            pages = get_backend(src, cached=False).read_pages(src)
+            kinds = ["NAME_WITH_TITLE", "UPPERCASE_NAME"]
+            found = {
+                (c.kind, c.value)
+                for c in detect_in_page(pages[0], "a.pdf", kinds=kinds)
+            }
+        self.assertIn(("NAME_WITH_TITLE", "Jane DOE"), found)
+        self.assertIn(("UPPERCASE_NAME", "Ref DUPONT"), found)
+        self.assertFalse([v for _, v in found if "\n" in v or "Né" in v or "ATTESTATION" in v])
+
+    def test_title_at_end_of_line_still_finds_the_name(self):
+        # A title wrapped onto the previous line is a real layout: keep it.
+        match = self.rule("NAME_WITH_TITLE").pattern.search("signed by Mme\nJane DOE today")
+        self.assertEqual(match.group("value"), "Jane DOE")
+
 
 class TestRedaction(unittest.TestCase):
     def setUp(self):

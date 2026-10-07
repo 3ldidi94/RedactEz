@@ -31,6 +31,9 @@ _MONTHS = (
 _UPPER = "A-ZÀÂÄÇÉÈÊËÎÏÔÖÙÛÜŸÆŒ"
 _LOWER = "a-zàâäçéèêëîïôöùûüÿæœ"
 _NAME = rf"[{_UPPER}][{_UPPER}{_LOWER}'’\-]+"
+# Between the words of one name: spaces only. With \s a name ran onto the next
+# line ("Mme Jane DOE" + "Né le ..." gave "Jane DOE Né").
+_GAP = r"[ \t ]+"
 
 
 # --------------------------------------------------------------------------
@@ -209,7 +212,7 @@ RULES: List[Rule] = [
         pattern=re.compile(
             rf"(?:M\.|MM\.|Mme|Mmes|Mlle|Monsieur|Madame|Mademoiselle|Me|Dr|Pr|"
             rf"Mr\.?|Mrs\.?|Ms\.?|Miss|Prof\.?)\s+"
-            rf"(?P<value>{_NAME}(?:\s+{_NAME}){{0,3}})"
+            rf"(?P<value>{_NAME}(?:{_GAP}{_NAME}){{0,3}})"
         ),
         group=1,
         confidence="medium",
@@ -218,7 +221,7 @@ RULES: List[Rule] = [
     Rule(
         kind="UPPERCASE_NAME",
         pattern=re.compile(
-            rf"(?<![\w]){_NAME}\s+[{_UPPER}]{{2,}}(?:[\s\-][{_UPPER}]{{2,}})*(?![\w])"
+            rf"(?<![\w]){_NAME}{_GAP}[{_UPPER}]{{2,}}(?:(?:{_GAP}|-)[{_UPPER}]{{2,}})*(?![\w])"
         ),
         confidence="low",
         description="run of uppercase words (likely a surname)",
