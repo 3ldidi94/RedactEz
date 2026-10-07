@@ -278,6 +278,8 @@ class TestErrors(unittest.TestCase):
             RedactionOptions(replacement_char="ab").validate()
         with self.assertRaises(ValueError):
             RedactionOptions(watermark_opacity=3).validate()
+        with self.assertRaises(ValueError):
+            RedactionOptions(flatten_grayscale="yes").validate()
 
     def test_report_json(self):
         src = make_pdf(self.tmp / "a.pdf", ["Jean Dupont"])

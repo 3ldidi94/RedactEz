@@ -23,13 +23,17 @@ from .detectors import (
     CONFIDENCE_ORDER,
     DEFAULT_KINDS,
     RULES,
+    VARIANT_DESCRIPTION,
+    VARIANT_KIND,
     Candidate,
     detect_in_page,
+    find_name_variants,
     merge_candidates,
 )
 from .matching import normalize
 from .policy import Policy, PolicyError, read_terms_file
 from .progress import NullProgress, ProgressBar
+from .textmap import PageText
 from .ui import UI, Style, plural, truncate
 from .watermark import DEFAULT_TEXT as WATERMARK_TEXT
 
@@ -110,14 +114,18 @@ def resolve_output(
     output: Optional[Path],
     suffix: str,
 ) -> Path:
+    try:  # some formats are written as another one (TIFF -> PDF)
+        extension = get_backend(src).output_suffix(src)
+    except DocumentError:
+        extension = src.suffix
     if output is None:
-        return src.with_name(f"{src.stem}{suffix}{src.suffix}")
+        return src.with_name(f"{src.stem}{suffix}{extension}")
     output = Path(output).expanduser()
     first = Path(inputs[0]).expanduser()
     if (
         len(inputs) == 1
         and first.is_file()
-        and output.suffix.lower() == src.suffix.lower()
+        and output.suffix.lower() in (src.suffix.lower(), extension.lower())
     ):
         return output
     base = first if first.is_dir() else first.parent
@@ -125,7 +133,7 @@ def resolve_output(
         relative = src.resolve().relative_to(base.resolve())
     except ValueError:
         relative = Path(src.name)
-    return output / relative
+    return (output / relative).with_suffix(extension)
 
 
 def check_output_location(
@@ -179,7 +187,18 @@ def ask_candidates(
             return True
         return policy.decision(candidate.value, candidate.kind)
 
-    pending = [c for c in candidates if decision(c) is None]
+    def variant_decision(candidate: Candidate) -> Optional[bool]:
+        """A name variant only matters once its name is accepted."""
+        own = decision(candidate)
+        if own is not None:
+            return own
+        parent = policy.decision(candidate.parent) if candidate.parent else True
+        return None if parent else False  # rejected (or undecided) name: skip
+
+    primaries = [c for c in candidates if c.parent is None]
+    variants = [c for c in candidates if c.parent is not None]
+
+    pending = [c for c in primaries if decision(c) is None]
     if pending and not accept_all:
         if not sys.stdin.isatty():
             raise UsageError(
@@ -190,15 +209,40 @@ def ask_candidates(
             )
         _prompt(pending, policy, ui)
 
-    for candidate in candidates:
+    # Parents first: a name accepted just above (or by --auto, or by the
+    # policy) must be settled before its variants are asked about.
+    for candidate in primaries:
         verdict = decision(candidate)
         if verdict or (verdict is None and accept_all):
             policy.add_redact(candidate.value)
 
+    pending = [c for c in variants if variant_decision(c) is None]
+    if pending and not accept_all:
+        if sys.stdin.isatty():
+            _prompt(pending, policy, ui, title="other forms of accepted names")
+        else:
+            # Never fail a batch that used to pass because a variant is new:
+            # when in doubt, over-redact, and say so.
+            for candidate in pending:
+                policy.add_redact(candidate.value)
+            ui.warn(
+                f"{plural(len(pending), 'other form')} of accepted names redacted "
+                "without asking (non-interactive run)"
+            )
+            ui.hint("record a decision for them with --policy, or --types to "
+                    "drop NAME_VARIANT")
 
-def _prompt(pending: Sequence[Candidate], policy: Policy, ui: UI) -> None:
+    for candidate in variants:
+        verdict = variant_decision(candidate)
+        if verdict or (verdict is None and accept_all):
+            policy.add_redact(candidate.value)
+
+
+def _prompt(
+    pending: Sequence[Candidate], policy: Policy, ui: UI, title: str = "to confirm"
+) -> None:
     """Ask about each candidate; type-wide answers settle the following ones."""
-    ui.title(f"{plural(len(pending), 'value')} to confirm")
+    ui.title(f"{plural(len(pending), 'value')} {title}")
     total = len(pending)
     for index, candidate in enumerate(pending, 1):
         if policy.decision(candidate.value, candidate.kind) is not None:
@@ -210,6 +254,8 @@ def _prompt(pending: Sequence[Candidate], policy: Policy, ui: UI) -> None:
             f"{ui.paint('·', Style.DIM)} {plural(candidate.count, 'occurrence')}"
         )
         ui.raw(f"    value   : {ui.paint(candidate.value, Style.BOLD, Style.YELLOW)}")
+        if candidate.parent:
+            ui.raw(ui.paint(f"    form of : {candidate.parent}", Style.DIM))
         ui.raw(
             ui.paint(
                 f"    context : "
@@ -274,6 +320,7 @@ def detect_candidates(
     # with it. An unreadable file is reported again by the redaction phase.
     failures: List[Tuple[str, str]] = []  # (message, hint)
     analysed: List[str] = []
+    read: List[Tuple[str, PageText]] = []  # kept for the name-variant search
     with _bar(len(files), "Analysing", ui) as bar:
         for path in files:
             bar.set_detail(path.name)
@@ -284,6 +331,7 @@ def detect_candidates(
             else:
                 for page in pages:
                     groups.append(detect_in_page(page, source=path.name, kinds=kinds))
+                    read.append((path.name, page))
                 analysed.append(f"{path} — {plural(len(pages), 'page')}")
             bar.update(1)
     for line in analysed:
@@ -293,7 +341,11 @@ def detect_candidates(
         if hint:
             ui.hint(hint)
     merged = merge_candidates(groups)
-    return [c for c in merged if CONFIDENCE_ORDER.get(c.confidence, 0) >= threshold]
+    kept = [c for c in merged if CONFIDENCE_ORDER.get(c.confidence, 0) >= threshold]
+    if VARIANT_KIND in kinds:
+        variants = find_name_variants(kept, read)
+        kept += [v for v in variants if CONFIDENCE_ORDER.get(v.confidence, 0) >= threshold]
+    return kept
 
 
 def redact_files(
@@ -541,6 +593,9 @@ def build_parser() -> argparse.ArgumentParser:
     irreversible_group.add_argument("--flatten-quality", type=int, default=70,
                                     metavar="30..100",
                                     help="JPEG quality; 100 = lossless (default: 70)")
+    irreversible_group.add_argument("--flatten-gray", action="store_true",
+                                    help="rasterize in grayscale: much smaller "
+                                         "files, colour is lost")
     irreversible_group.add_argument("--verify-image", action="store_true",
                                     help="re-read the output with OCR to prove no "
                                          "term stayed readable (slow)")
@@ -585,6 +640,7 @@ def _build_options(args) -> RedactionOptions:
         flatten=args.flatten,
         flatten_dpi=args.flatten_dpi,
         flatten_quality=args.flatten_quality,
+        flatten_grayscale=args.flatten_gray,
         verify_image=args.verify_image,
         watermark=None if args.no_watermark else (args.watermark or None),
         watermark_opacity=args.watermark_opacity,
@@ -640,6 +696,7 @@ def run(argv: Optional[Sequence[str]], ui: UI) -> int:
                 ]
                 for rule in RULES
             ]
+            + [[VARIANT_KIND, "medium", VARIANT_DESCRIPTION]]
         )
         return EXIT_OK
 

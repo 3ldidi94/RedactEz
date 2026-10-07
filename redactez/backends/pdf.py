@@ -735,7 +735,11 @@ class PdfBackend(Backend):
         try:
             for page in doc:
                 rect = page.rect
-                pixmap = page.get_pixmap(dpi=options.flatten_dpi, alpha=False)
+                pixmap = page.get_pixmap(
+                    dpi=options.flatten_dpi,
+                    alpha=False,
+                    colorspace=pymupdf.csGRAY if options.flatten_grayscale else pymupdf.csRGB,
+                )
                 target = flat.new_page(width=rect.width, height=rect.height)
                 if options.flatten_quality >= 100:
                     target.insert_image(target.rect, pixmap=pixmap)

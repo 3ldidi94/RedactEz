@@ -21,8 +21,10 @@ from .base import (  # noqa: F401
 PDF_IMPORT_ERROR = None
 try:
     from . import pdf  # noqa: F401
+    from . import image  # noqa: F401  (built on the PDF backend)
 except ImportError as exc:  # pragma: no cover
     PDF_IMPORT_ERROR = str(exc)
+from . import docx  # noqa: F401,E402  (standard library only)
 
 __all__ = [
     "Backend",

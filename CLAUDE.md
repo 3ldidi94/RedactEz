@@ -5,9 +5,10 @@ whoever **changes** the code.
 
 ## The project in one sentence
 
-A Python CLI that redacts personal data from PDFs by **genuinely removing** the
-content (text and pixels), with assisted detection, interactive prompting, OCR
-for scans, a watermark, and verification of the output.
+A Python CLI (plus a web front-end) that redacts personal data from PDFs, Word
+documents and images by **genuinely removing** the content (text and pixels),
+with assisted detection, interactive prompting, OCR for scans, a watermark, and
+verification of the output.
 
 **Language: English everywhere** — code, comments, docstrings, user-facing
 messages, CLI option names, tests, documentation. Detection rules still contain
@@ -19,7 +20,8 @@ keywords for other locales rather than replacing them.
 
 ```bash
 python3 -m pip install -r requirements.txt   # PyMuPDF
-python3 -m unittest discover -s tests -q     # 83 tests, ~5 s (web tests skip without Flask)
+python3 -m unittest discover -s tests -q     # 109 tests, ~5 s (web tests skip without Flask)
+python3 -m pip install .                     # installs the `redactez` command (pyproject.toml)
 python3 -m redactez --help
 python3 -m redactez --check-ocr          # Tesseract diagnostics
 python3 web/webapp.py                    # web UI on :8020 (needs web/requirements.txt)
@@ -44,6 +46,8 @@ redactez/
   ui.py             colours, messages, tables
   backends/base.py  Backend ABC, RedactionOptions, FileReport, errors, registry
   backends/pdf.py   PDF implementation (PyMuPDF) — most of the work lives here
+  backends/image.py images: PNG/JPEG/TIFF/BMP -> PDF -> PdfBackend -> image
+  backends/docx.py  Word: surgical XML edits, standard library only
   cli.py            arguments, phases, prompting, summary
 web/
   webapp.py         Flask front-end: /analyze (JSON) then /redact (PDF)
@@ -123,6 +127,32 @@ True. Only `policy.redact` is redacted, so `ask_candidates` adds every
 candidate whose decision is True at the end. Skipping that step silently
 leaves data in clear (bug fixed in 2.1, `TestRegressions`).
 
+### Name variants are only asked once their name is accepted
+
+`find_name_variants()` builds `NAME_VARIANT` candidates with a `parent`.
+`ask_candidates` settles the primaries first, then the variants: a variant of
+a rejected name is skipped, one of an accepted name is asked about. In a
+**non-interactive** run, pending variants are redacted with a warning instead
+of raising: raising would break batches that used to pass. Keep that.
+
+### DOCX: never re-serialize the XML
+
+ElementTree renames namespace prefixes and drops declarations it considers
+unused, which breaks `mc:Ignorable` and makes Word reject the file. The DOCX
+backend locates text nodes and attributes by regex and splices them in place.
+Matches are searched on the **paragraph** text (runs joined), because Word
+splits a word across runs freely. `_extractable_text()` reads text nodes AND
+attribute values of every part: keep it in step with what `redact()` scrubs.
+The thumbnail (`docProps/thumbnail.*`) is a picture of page 1: always removed.
+
+### Images go through the PDF backend
+
+`ImageBackend` converts to PDF in a private temp dir (removed by
+`weakref.finalize`), forces `flatten="always"` at the image's native
+resolution, then writes the image back. The converted path is reused between
+analysis and redaction so the PDF backend's cache spares a second OCR pass.
+TIFF/BMP come back as PDF: `Backend.output_suffix()` tells `resolve_output()`.
+
 ### Form field text is not in `rawdict`
 
 AcroForm widgets are handled separately (`_scrub_widgets`), as are annotations,
@@ -167,6 +197,10 @@ detection or redaction. Rules specific to it:
   options only).
 - New `RedactionOptions` field: expose it in `_options()` and the form if it
   makes sense on the web, and add its default to `DEFAULTS`.
+- Optional protection through environment variables: `REDACTEZ_AUTH`
+  (`user:password`, Basic auth) and `REDACTEZ_RATE_LIMIT` (per minute).
+- The decision file is imported/exported **in the browser**; it never reaches
+  the server.
 
 ## Conventions
 
@@ -177,7 +211,12 @@ detection or redaction. Rules specific to it:
 - **Output**: everything goes through `ui.UI` (stderr). Never call `print()`
   directly in library code; standard output stays free.
 - **Progress**: `ProgressBar` disables itself outside a TTY. Do not add a
-  `tqdm` or `rich` dependency: the project deliberately stands on PyMuPDF alone.
+  `tqdm` or `rich` dependency: the project deliberately stands on PyMuPDF alone
+  (the DOCX backend uses `zipfile` and regexes for the same reason).
+- **CI** (`.github/workflows/tests.yml`): unit tests on Linux 3.9–3.13,
+  Windows, macOS; a run with Tesseract; `pip install .` + the `redactez`
+  command; the web Docker image build. Keep the suite runnable without
+  Tesseract and without Flask.
 - **CLI options** are grouped with `add_argument_group`. Every new option must
   appear in the README (a simple consistency check: compare `build_parser()`
   with the README tables).

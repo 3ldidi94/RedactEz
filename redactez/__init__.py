@@ -5,7 +5,7 @@ then replaced by a visible truncation pattern. The source file is never
 modified and the copy carries a watermark.
 """
 
-__version__ = "2.1.0"
+__version__ = "2.2.0"
 
 from .backends import (  # noqa: F401
     DocumentError,

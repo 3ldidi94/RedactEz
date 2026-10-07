@@ -1,10 +1,12 @@
 # RedactEz
 
-Version 2.1 · Python ≥ 3.9 · one Python dependency (PyMuPDF)
+Version 2.2 · Python ≥ 3.9 · one Python dependency (PyMuPDF)
 
-A command line tool that **genuinely removes** personal data from PDFs (or a
-whole directory of them) and replaces it with a visible truncation pattern
-(`******`, a black box, or a `[REDACTED]` label).
+A command line tool (and an optional [web interface](#web-interface)) that
+**genuinely removes** personal data from PDFs, Word documents (`.docx`) and
+images (PNG, JPEG, TIFF, BMP) — or a whole directory of them — and replaces it
+with a visible truncation pattern (`******`, a black box, or a `[REDACTED]`
+label).
 
 > **The key point**: content is removed from the PDF content stream, not
 > covered up. Drawing a black rectangle on top — what pypdf, reportlab, pdf-lib
@@ -32,7 +34,7 @@ and account numbers no longer exist in the file. Select the text, copy it, run
 
 ```mermaid
 flowchart TD
-    A["PDF file or directory"] --> B{"Terms given<br/>with -s ?"}
+    A["PDF, Word or image file,<br/>or a directory"] --> B{"Terms given<br/>with -s ?"}
 
     B -- yes --> P["Policy<br/>(terms to redact)"]
     B -- no --> C["Read pages<br/>text + position of every character"]
@@ -129,7 +131,10 @@ verified. The original is untouched.
 ## Installation
 
 ```bash
-python3 -m pip install -r requirements.txt   # PyMuPDF only
+python3 -m pip install .            # installs the `redactez` command (PyMuPDF only)
+python3 -m pip install ".[web]"     # plus the web interface (Flask, gunicorn)
+# or, without installing the package:
+python3 -m pip install -r requirements.txt
 ```
 
 Nothing else is required: detection, prompting, policy, progress bar and
@@ -144,7 +149,7 @@ winget install UB-Mannheim.TesseractOCR            # Windows (found even if not 
 python3 -m redactez --check-ocr                # verify the installation
 ```
 
-Handy alias:
+Without `pip install .`, a handy alias:
 
 ```bash
 alias redactez='python3 -m redactez'
@@ -200,6 +205,16 @@ python3 -m redactez contract.pdf --policy pii.json
 Decisions are written to `pii.json` and **replayed** on later runs: the same
 question is never asked twice.
 
+**Other forms of a name.** Redaction looks for the exact string you accepted, so
+accepting `Jane DOE` alone would leave `Mme DOE` or `J. DOE` readable further
+down. Once a name is accepted, the tool looks for its other forms — the surname
+alone, `J. DOE`, `DOE Jane` — and asks about the ones that actually occur
+(`NAME_VARIANT`, shown with `form of : Jane DOE`). A variant of a rejected name
+is never asked about. In a non-interactive run, variants of accepted names are
+redacted without asking and the run says so (when in doubt, over-redact);
+record a decision in the policy, or leave `NAME_VARIANT` out of `--types`, to
+control them.
+
 ### 3. Batch processing
 
 ```bash
@@ -226,7 +241,30 @@ python3 -m redactez scan.pdf --ocr force --ocr-language eng
 OCR results are cached between the analysis and redaction phases: without that
 cache every page would be recognised twice (~1 s per page).
 
-### 5. Irreversible redaction
+### 5. Word documents and images
+
+```bash
+python3 -m redactez contract.docx -s "Jane Doe"
+python3 -m redactez scan.png --verify-image
+```
+
+**Word (`.docx`)** — the text is replaced inside the document's XML, so there is
+nothing to flatten: the characters are gone. Every place a `.docx` stores text
+is covered: body, headers and footers, footnotes, comments, tracked deletions,
+field codes, hyperlink targets (`mailto:`), alt text of pictures, data bound to
+content controls (`customXml`), and the identities of comment and revision
+authors. Metadata is cleared and the **thumbnail** (a picture of page 1 that
+Word stores in the file) is always removed. The watermark is a red line at the
+top of the document. Pictures inside the document are **not** analysed: the
+run warns when there are some.
+
+**Images** — read through OCR, redacted in their pixels, and written back in
+the same format and resolution (PNG, JPEG). TIFF and BMP come back as PDF
+(PyMuPDF cannot write them, and a TIFF may hold several pages). Re-rendering
+also drops the EXIF metadata (camera, date, GPS position). Use `--verify-image`:
+it is the only conclusive check on an image.
+
+### 6. Irreversible redaction
 
 A redaction placed over an **image** (a scan, or a scan already OCR'd by
 another tool) raises a problem plain text does not have: if only text objects
@@ -263,7 +301,8 @@ python3 -m redactez scan.pdf --verify-image       # OCR-based proof
 
 Tuning: `--flatten-dpi` (default 150) and `--flatten-quality` (JPEG, default 70;
 `100` = lossless). The defaults favour a compact file; raise them (e.g. 200 / 85)
-if the output must stay sharp for print.
+if the output must stay sharp for print. `--flatten-gray` rasterizes in
+grayscale, which makes files several times smaller when colour does not matter.
 
 **Trade-off**: a flattened document is no longer selectable, searchable or
 accessible to screen readers. On a scan that costs nothing, since there was no
@@ -275,7 +314,7 @@ in the pixels. `--verify-image` runs OCR on the output and fails if any term is
 still readable. It is slow (~1 s per page) but it is the only check that proves
 anything about a rasterized document.
 
-### 6. Dry run
+### 7. Dry run
 
 ```bash
 python3 -m redactez contract.pdf --dry-run
@@ -288,9 +327,10 @@ Full analysis and prompting, no file written.
 ## Web interface
 
 A single-page web front-end lives in [`web/`](web/README.md). It drives the
-same engine as the CLI, in the same three steps: drop PDFs, review the detected
-values (tick or untick, add terms by hand), download the redacted copy (one
-PDF, or a ZIP for several files).
+same engine as the CLI, in the same three steps: drop documents (PDF, Word,
+images), review the detected values (tick or untick, keyboard shortcuts, add
+terms by hand, import or export a `pii.json` decision file), download the
+redacted copy (one file, or a ZIP for several).
 
 ```bash
 cd web && docker compose up -d        # -> http://localhost:8020
@@ -301,7 +341,9 @@ python3 web/webapp.py                 # -> http://localhost:8020
 
 Live preview of the real page (pdf.js, served locally), EN/FR, three themes.
 Nothing is stored server-side, and a file whose final check still finds a term
-is withheld rather than delivered. Details, limits and reverse-proxy setup:
+is withheld rather than delivered. Optional HTTP authentication
+(`REDACTEZ_AUTH=user:password`) and per-client rate limiting
+(`REDACTEZ_RATE_LIMIT`, 120 requests per minute by default). Details, limits and reverse-proxy setup:
 [web/README.md](web/README.md).
 
 ---
@@ -409,6 +451,7 @@ nothing away — at the cost of a slightly noisier page.
 | `--flatten [MODE]` | `auto` (default), `always`, `never` — bare flag means `always` |
 | `--flatten-dpi` | rasterization resolution, 72–600 (default 150) |
 | `--flatten-quality` | JPEG quality 30–100; 100 = lossless (default 70) |
+| `--flatten-gray` | rasterize in grayscale: much smaller files, colour is lost |
 | `--verify-image` | re-read the output with OCR, fail if a term is still readable |
 
 ### Misc
@@ -444,6 +487,19 @@ nothing away — at the cost of a slightly noisier page.
 | `IP` | medium | IPv4 |
 | `POSTAL_CODE_CITY` | low | postal code + city |
 | `UPPERCASE_NAME` | low | off by default (noisy) |
+| `FR_TAX_ID` | high | French tax number (SPI): key = first 10 digits mod 511 |
+| `BE_NRN` | high | Belgian national register number (mod 97, before and after 2000) |
+| `FR_SIRET` | medium | Luhn on 14 digits |
+| `FR_PASSPORT` | medium | `12AB34567` |
+| `UK_NINO` | medium | National Insurance number, invalid prefixes excluded |
+| `US_SSN` | medium | `123-45-6789`, invalid areas (000, 666, 9xx) excluded |
+| `FR_SIREN` | low | Luhn on 9 digits (1 random number in 10 passes: unticked by default on the web) |
+| `NAME_VARIANT` | medium | other forms of an accepted name (surname alone, `J. DOE`, `DOE Jane`) |
+
+`LABELED_FIELD` also knows identity documents: `N° de passeport :`,
+`Carte d'identité :`, `Numéro fiscal :`, `Permis de conduire :`,
+`Passport number:`, `ID card number:`, `Driver's licence:`, `National
+Insurance number:`…
 
 Checksum validators remove most false positives: a 15-digit run that is not a
 valid French SSN is never proposed.
@@ -529,6 +585,10 @@ with `flattened: true`, `verified: true` proves nothing on its own —
 - **Hyperlinks** containing personal data (`mailto:` in clear text).
 - **Bookmarks** (table of contents).
 - **Metadata**, both classic and XMP, stripped by default.
+- **Word documents**: body, headers, footers, footnotes, comments, tracked
+  deletions, field codes, hyperlink targets, alt text, `customXml` data,
+  author identities, metadata and the page-1 thumbnail.
+- **Images**: OCR, pixel erasure, same format and resolution, EXIF dropped.
 - **Final check**: the produced file is reopened; if a term is still
   extractable the run fails and lists the terms.
 
@@ -555,6 +615,10 @@ with `flattened: true`, `verified: true` proves nothing on its own —
    of the word. Use `--mode label` when that matters.
 9. **Coloured background**: `stars` and `label` modes paint the area white. On
    a non-white background use `--mode box`.
+10. **Pictures inside a Word document** are not analysed (the run warns). The
+    DOCX watermark is a line of text at the top, not a diagonal stamp.
+11. **Name variants** cover the common forms (surname alone, initial, reversed
+    order), not nicknames or misspellings.
 
 ---
 
@@ -612,7 +676,11 @@ redactez/
   ui.py             colours, messages, tables
   backends/base.py  Backend ABC, options, typed errors, registry
   backends/pdf.py   PDF implementation (PyMuPDF) — most of the work lives here
+  backends/image.py images: converted to PDF, redacted, written back as images
+  backends/docx.py  Word: surgical edits of the XML, standard library only
   cli.py            arguments, phases, prompting, summary
+web/
+  webapp.py         Flask front-end: /analyze (JSON) then /redact (file)
 ```
 
 ### Adding a format
@@ -621,9 +689,9 @@ redactez/
 from redactez.backends.base import Backend, FileReport, register
 
 @register
-class DocxBackend(Backend):
-    name = "docx"
-    extensions = (".docx",)
+class OdtBackend(Backend):
+    name = "odt"
+    extensions = (".odt",)
 
     def read_pages(self, path, options=None, progress=None): ...    # -> List[PageText]
     def redact(self, path, out, terms, options, progress=None): ... # -> FileReport
@@ -665,11 +733,13 @@ print(report.total_occurrences, report.verified, report.warnings)
 ## Contributing
 
 ```bash
-python3 -m unittest discover -s tests -q     # 73 tests, ~5 s
+python3 -m unittest discover -s tests -q     # 109 tests, ~5 s
 ```
 
-OCR tests skip themselves when Tesseract is missing, so the suite passes on a
-bare machine.
+OCR tests skip themselves when Tesseract is missing, and web tests when Flask
+is, so the suite passes on a bare machine. GitHub Actions runs it on Linux
+(Python 3.9 to 3.13), Windows and macOS, once more with Tesseract installed,
+and also checks that the package installs and that the web image builds.
 
 Please read [CLAUDE.md](CLAUDE.md) before changing the redaction logic: it
 documents the invariants and the non-obvious traps (two-pass redaction,
@@ -694,6 +764,23 @@ python3 docs/make_screenshots.py
 ---
 
 ## Changelog
+
+### 2.2
+- **Word documents (`.docx`)** and **images** (PNG, JPEG, TIFF, BMP) are
+  supported, by the CLI and the web interface.
+- **Name variants**: once a name is accepted, its other forms (surname alone,
+  `J. DOE`, `DOE Jane`) are looked for and proposed as `NAME_VARIANT`.
+- New identifiers: French tax number, SIRET, SIREN, French passport, Belgian
+  national register number, UK National Insurance number, US SSN; identity
+  document labels for `LABELED_FIELD`.
+- `--flatten-gray`: grayscale rasterization for much smaller files.
+- Web: other formats, name variants across the files of a batch, typed terms
+  shown in the preview, import/export of the `pii.json` decision file,
+  keyboard shortcuts, optional HTTP authentication and rate limiting.
+- Packaging: `pip install .` installs a `redactez` command; GitHub Actions CI.
+- Name rules no longer run onto the next line (`Jane DOE` followed by a line
+  starting `Né le` gave `Jane DOE Né`).
+- Flattening defaults lowered to 150 dpi / JPEG 70 (files about half the size).
 
 ### Rename
 - The project is now **RedactEz**: package `redactez`, command `redactez`

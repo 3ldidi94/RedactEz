@@ -67,6 +67,7 @@ class RedactionOptions:
     flatten: str = "auto"  # auto | always | never
     flatten_dpi: int = 150
     flatten_quality: int = 70  # 100 = lossless (much larger file)
+    flatten_grayscale: bool = False  # about 3x smaller, colour is lost
     # OCR
     ocr: str = "auto"  # auto | force | never
     ocr_language: str = "auto"
@@ -92,6 +93,8 @@ class RedactionOptions:
             raise ValueError("flatten resolution must be between 72 and 600 dpi")
         if not (30 <= self.flatten_quality <= 100):
             raise ValueError("flatten quality must be between 30 and 100")
+        if not isinstance(self.flatten_grayscale, bool):
+            raise ValueError("flatten_grayscale must be true or false")
         if not (0.0 <= self.watermark_opacity <= 1.0):
             raise ValueError("watermark opacity must be between 0 and 1")
         if len(self.replacement_char) != 1 or not self.replacement_char.isprintable():
@@ -181,6 +184,10 @@ class Backend(ABC):
     @classmethod
     def supports(cls, path: Path) -> bool:
         return path.suffix.lower() in cls.extensions
+
+    def output_suffix(self, path: Path) -> str:
+        """Extension of the produced file: the source format by default."""
+        return Path(path).suffix
 
     @abstractmethod
     def read_pages(
