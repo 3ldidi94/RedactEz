@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "redactez"
+dynamic = ["version"]
+description = "Redact personal data from PDF, Word and image files by genuinely removing it, with assisted detection, OCR and verification."
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [{ name = "3ldidi94" }]
+keywords = ["redaction", "anonymization", "gdpr", "pdf", "docx", "ocr", "privacy"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Environment :: Console",
+    "Intended Audience :: Legal Industry",
+    "Topic :: Security",
+    "Topic :: Office/Business",
+]
+# PyMuPDF only: the project deliberately stands on one dependency.
+dependencies = ["PyMuPDF>=1.24,<2.0"]
+
+[project.optional-dependencies]
+web = ["Flask>=3.0", "gunicorn>=21.2"]
+dev = ["reportlab>=4.0", "pillow>=10.0"]
+
+[project.scripts]
+redactez = "redactez.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["redactez*"]
+
+[tool.setuptools.dynamic]
+version = { attr = "redactez.__version__" }
