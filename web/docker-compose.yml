@@ -7,6 +7,8 @@ services:
     container_name: redactez-web
     environment:
       - BIND=0.0.0.0   # bridge network + port mapping; with network_mode host keep 127.0.0.1
+      # - REDACTEZ_AUTH=user:password   # require a password (serve over HTTPS)
+      # - REDACTEZ_RATE_LIMIT=120        # requests per minute per client, 0 = off
     ports:
       - "8020:8020"
     # Uploaded documents only ever live in RAM.

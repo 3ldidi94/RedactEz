@@ -123,6 +123,10 @@
   .c .ctx mark{background:color-mix(in srgb,var(--warn) 30%,transparent);color:inherit;border-radius:3px}
   .c .meta{font-size:11.5px;color:var(--muted);white-space:nowrap;text-align:right}
   .empty{padding:18px;text-align:center;color:var(--muted);font-size:13px}
+  .c:focus{outline:2px solid var(--accent);outline-offset:-2px}
+  .c .of{font-size:11.5px;color:var(--muted)}
+  .kbd{margin:8px 0 0;font-size:12px}
+  kbd{font-family:inherit;font-size:11px;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 4px;background:var(--elev)}
   /* preview */
   .preview-card{position:sticky;top:12px}
   @media (max-width:880px){.preview-card{position:static}}
@@ -173,7 +177,7 @@
       <text x="130" y="76" font-family="'JetBrains Mono','Fira Code',Consolas,'DejaVu Sans Mono',monospace" font-size="54" font-weight="700" letter-spacing="-1"><tspan style="fill:var(--logo-ink)">Redact</tspan><tspan fill="#0D9488">Ez</tspan></text>
       <text x="132" y="104" font-family="'JetBrains Mono','Fira Code',Consolas,'DejaVu Sans Mono',monospace" font-size="14" fill="#8b949e" letter-spacing="2">REMOVE · NOT COVER</text>
     </svg>
-    <p class="tagline" data-i18n="slogan">Personal data removed from your PDFs, not just covered. Nothing is stored.</p>
+    <p class="tagline" data-i18n="slogan">Personal data removed from your documents, not just covered. Nothing is stored.</p>
     <div class="sp"></div>
     <div class="ctl">
       <select id="lang" class="mini" title="Language"><option value="en">EN</option><option value="fr">FR</option></select>
@@ -192,10 +196,10 @@
         <h2><span class="n">1</span><span data-i18n="h_docs">Documents</span></h2>
         <div class="field">
           <div class="drop" id="drop">
-            <div class="big" data-i18n="drop_big">Drop PDF files here</div>
-            <div class="hint" data-i18n="drop_small">or click to choose, several files allowed</div>
+            <div class="big" data-i18n="drop_big">Drop documents here</div>
+            <div class="hint" data-i18n="drop_small">PDF, Word (.docx) or images · click to choose · several files allowed</div>
           </div>
-          <input type="file" id="file" accept="application/pdf,.pdf" multiple hidden>
+          <input type="file" id="file" accept="{{ extensions|join(',') }}" multiple hidden>
           <ul class="files" id="filelist"></ul>
           <div class="listinfo"><span id="summary"></span>
             <button type="button" id="clearall" class="linkbtn" data-i18n="clear" hidden>Clear all</button></div>
@@ -260,8 +264,16 @@
           <span class="sp"></span>
           <button type="button" class="linkbtn" id="checkall" data-i18n="check_all" hidden>Tick all</button>
           <button type="button" class="linkbtn" id="uncheckall" data-i18n="uncheck_all" hidden>Untick all</button>
+          <button type="button" class="linkbtn" id="pimport" data-i18n="p_import">Import decisions</button>
+          <button type="button" class="linkbtn" id="pexport" data-i18n="p_export">Export decisions</button>
+          <input type="file" id="pfile_in" accept=".json,application/json" hidden>
         </div>
         <div class="cands" id="cands" hidden></div>
+        <p class="hint kbd" id="kbhint" hidden><span data-i18n="kb_title">Keyboard:</span>
+          <kbd>↑</kbd><kbd>↓</kbd> <span data-i18n="kb_move">move</span> ·
+          <kbd>Space</kbd> <span data-i18n="kb_toggle">tick / untick</span> ·
+          <kbd>y</kbd>/<kbd>n</kbd> <span data-i18n="kb_yn">redact / keep</span> ·
+          <kbd>t</kbd>/<kbd>i</kbd> <span data-i18n="kb_type">whole type</span></p>
 
         <div class="field" style="margin-top:16px">
           <label for="custom"><span data-i18n="l_custom">Terms to redact by hand</span>
@@ -335,6 +347,9 @@
             <label class="check"><input type="checkbox" id="verify_image" class="opt">
               <span><span data-i18n="l_vimg">Visual check by OCR</span>
                 <span class="hint" data-i18n="d_vimg">re-reads the output image: the only proof on a scan (slow)</span></span></label>
+            <label class="check"><input type="checkbox" id="flatten_gray" class="opt">
+              <span><span data-i18n="l_gray">Flatten in grayscale</span>
+                <span class="hint" data-i18n="d_gray">much smaller files, colour is lost</span></span></label>
             <div class="row" style="margin-top:8px">
               <div class="field">
                 <label for="flatten" data-i18n="l_flatten">Flatten (rasterize)</label>
@@ -390,7 +405,7 @@
         <span><i class="r"></i><span data-i18n="lg_red">will be removed</span></span>
         <span><i class="u"></i><span data-i18n="lg_unt">detected, not ticked</span></span>
       </div>
-      <p class="hint" data-i18n="pv_note" style="margin:10px 0 0">Approximate preview. Terms typed by hand are only matched by the engine, in the final file.</p>
+      <p class="hint" data-i18n="pv_note" style="margin:10px 0 0">Approximate preview. Terms typed by hand show up once the detection is run again.</p>
     </div>
   </div>
 
@@ -413,8 +428,8 @@
 /* ---------------- i18n ---------------- */
 const I18N={
  en:{th_oled:"Black (OLED)",th_grey:"Grey",th_white:"White",
-  slogan:"Personal data removed from your PDFs, not just covered. Nothing is stored.",
-  h_docs:"Documents",drop_big:"Drop PDF files here",drop_small:"or click to choose, several files allowed",
+  slogan:"Personal data removed from your documents, not just covered. Nothing is stored.",
+  h_docs:"Documents",drop_big:"Drop documents here",drop_small:"PDF, Word (.docx) or images · click to choose · several files allowed",
   clear:"Clear all",l_adv_det:"Advanced options",g_types:"Data types to detect",g_ocr:"OCR (scanned documents)",g_render:"Rendering",g_match:"Matching",g_irrev:"Irreversibility",g_file:"File",l_wmtext:"Watermark text",l_wmop:"Watermark opacity",l_minconf:"Minimum confidence",
   cf_low:"low (show everything)",cf_medium:"medium",cf_high:"high only",l_ocr:"OCR",
   ocr_auto:"auto: pages without text",ocr_force:"force: every page",ocr_never:"never",l_ocrlang:"Language",
@@ -433,7 +448,7 @@ const I18N={
   l_suffix:"Filename suffix",btn:"Redact",cancel:"Cancel",
   warn_read:"Read the produced document before sharing it: automatic detection is never exhaustive.",
   h_preview:"Live preview",lg_red:"will be removed",lg_unt:"detected, not ticked",
-  pv_note:"Approximate preview. Terms typed by hand are only matched by the engine, in the final file.",
+  pv_note:"Approximate preview. Terms typed by hand show up once the detection is run again.",kd_FR_TAX_ID:"French tax number (SPI)",kd_FR_SIRET:"French business establishment number (SIRET)",kd_FR_SIREN:"French business number (SIREN)",kd_FR_PASSPORT:"French passport number",kd_BE_NRN:"Belgian national register number",kd_UK_NINO:"UK National Insurance number",kd_US_SSN:"US Social Security number",kd_NAME_VARIANT:"other forms of a detected name (surname alone, initial)",form_of:"form of",p_import:"Import decisions",p_export:"Export decisions",p_imported:"Decisions imported: {r} to redact, {i} to keep.",p_bad:"Not a RedactEz decision file.",p_exported:"Decision file saved. It holds personal data in clear text: keep it safe.",kb_title:"Keyboard:",kb_move:"move",kb_toggle:"tick / untick",kb_yn:"redact / keep",kb_type:"whole type",l_gray:"Flatten in grayscale",d_gray:"much smaller files, colour is lost",no_preview_docx:"No page preview for Word documents",no_preview_img:"This image format cannot be previewed",
   privacy:"No file is kept on the server. Each document is processed in a temporary folder that is wiped before the response is sent. Your terms are never saved.",
   foot:"Same engine as the CLI: <code>python3 -m redactez doc.pdf</code>",
   kd_EMAIL:"email address",kd_FR_SSN:"French social security number (NIR)",kd_IBAN:"IBAN",
@@ -456,8 +471,8 @@ const I18N={
   low_note:"Low-confidence values are unticked by default.",page:"page",
   no_preview:"(preview unavailable)"},
  fr:{th_oled:"Noir (OLED)",th_grey:"Gris",th_white:"Blanc",
-  slogan:"Les données personnelles retirées de vos PDF, pas seulement masquées. Rien n'est conservé.",
-  h_docs:"Documents",drop_big:"Déposez vos fichiers PDF ici",drop_small:"ou cliquez pour choisir, plusieurs fichiers possibles",
+  slogan:"Les données personnelles retirées de vos documents, pas seulement masquées. Rien n'est conservé.",
+  h_docs:"Documents",drop_big:"Déposez vos documents ici",drop_small:"PDF, Word (.docx) ou images · cliquez pour choisir · plusieurs fichiers possibles",
   clear:"Tout effacer",l_adv_det:"Options avancées",g_types:"Types de données à détecter",g_ocr:"OCR (documents scannés)",g_render:"Rendu",g_match:"Correspondance",g_irrev:"Irréversibilité",g_file:"Fichier",l_wmtext:"Texte du filigrane",l_wmop:"Opacité du filigrane",l_minconf:"Confiance minimale",
   cf_low:"faible (tout afficher)",cf_medium:"moyenne",cf_high:"élevée uniquement",l_ocr:"OCR",
   ocr_auto:"auto : pages sans texte",ocr_force:"forcer : toutes les pages",ocr_never:"jamais",l_ocrlang:"Langue",
@@ -476,7 +491,7 @@ const I18N={
   l_suffix:"Suffixe du fichier",btn:"Caviarder",cancel:"Annuler",
   warn_read:"Relisez le document produit avant de le partager : la détection automatique n'est jamais exhaustive.",
   h_preview:"Aperçu en direct",lg_red:"sera supprimé",lg_unt:"détecté, non coché",
-  pv_note:"Aperçu approximatif. Les termes saisis à la main ne sont recherchés que par le moteur, dans le fichier final.",
+  pv_note:"Aperçu approximatif. Les termes saisis à la main apparaissent après une nouvelle détection.",kd_FR_TAX_ID:"numéro fiscal (SPI)",kd_FR_SIRET:"numéro SIRET",kd_FR_SIREN:"numéro SIREN",kd_FR_PASSPORT:"numéro de passeport français",kd_BE_NRN:"numéro de registre national belge",kd_UK_NINO:"numéro National Insurance (Royaume-Uni)",kd_US_SSN:"numéro de sécurité sociale américain",kd_NAME_VARIANT:"autres formes d'un nom détecté (nom seul, initiale)",form_of:"forme de",p_import:"Importer des décisions",p_export:"Exporter les décisions",p_imported:"Décisions importées : {r} à caviarder, {i} à garder.",p_bad:"Ce n'est pas un fichier de décisions RedactEz.",p_exported:"Fichier de décisions enregistré. Il contient des données personnelles en clair : protégez-le.",kb_title:"Clavier :",kb_move:"naviguer",kb_toggle:"cocher / décocher",kb_yn:"caviarder / garder",kb_type:"tout le type",l_gray:"Aplatir en niveaux de gris",d_gray:"fichiers bien plus légers, la couleur est perdue",no_preview_docx:"Pas d'aperçu de page pour les documents Word",no_preview_img:"Ce format d'image ne peut pas être prévisualisé",
   privacy:"Aucun fichier n'est conservé sur le serveur. Chaque document est traité dans un dossier temporaire effacé avant l'envoi de la réponse. Vos termes ne sont jamais enregistrés.",
   foot:"Même moteur que la CLI : <code>python3 -m redactez doc.pdf</code>",
   kd_EMAIL:"adresse e-mail",kd_FR_SSN:"numéro de sécurité sociale (NIR)",kd_IBAN:"IBAN",
@@ -500,8 +515,15 @@ const I18N={
   no_preview:"(aperçu indisponible)"}
 };
 const FR_ERR=[
-  [/^send exactly one PDF file per request$/,"envoyez un seul PDF par requête"],
-  [/^not a PDF: (.+)$/,"ce n'est pas un PDF : $1"],
+  [/^send exactly one file per request$/,"envoyez un seul fichier par requête"],
+  [/^unsupported format: (.+)$/,"format non pris en charge : $1"],
+  [/^supported: (.+)$/,"formats acceptés : $1"],
+  [/^too many requests, slow down$/,"trop de requêtes, ralentissez"],
+  [/^retry in (\d+) s$/,"réessayez dans $1 s"],
+  [/^password protected \(or legacy\) Word document$/,"document Word protégé par mot de passe (ou ancien format)"],
+  [/^unreadable or damaged DOCX.*/,"DOCX illisible ou endommagé"],
+  [/^unreadable image.*/,"image illisible"],
+  [/^(\d+) picture\(s\) not analysed.*/,"$1 image(s) non analysée(s) : le texte dans les images reste tel quel, vérifiez-les"],
   [/^nothing to redact$/,"rien à caviarder"],
   [/^tick some detected values or add terms by hand$/,"cochez des valeurs détectées ou ajoutez des termes à la main"],
   [/^term\(s\) too short$/,"terme(s) trop court(s)"],
@@ -549,7 +571,10 @@ function applyTheme(){document.documentElement.setAttribute("data-theme",theme);
 $("#theme").addEventListener("change",e=>{theme=e.target.value;lsSet("rz_theme",theme);applyTheme();});
 
 /* ---------------- state ---------------- */
-const MAX_BYTES={{ max_mb }}*1024*1024, MIN_TERM={{ min_term }};
+const MAX_BYTES={{ max_mb }}*1024*1024, MIN_TERM={{ min_term }}, EXTS={{ extensions|tojson }};
+const NAME_KINDS=["NAME_WITH_TITLE","UPPERCASE_NAME","LABELED_FIELD"];
+const extOf=n=>{const m=/\.[^.]+$/.exec(n);return m?m[0].toLowerCase():"";};
+const typeOf=f=>{const e=extOf(f.name);return e===".pdf"?"pdf":e===".docx"?"docx":"image";};
 let files=[];          // {file, status, analysis}
 let cands=new Map();   // key -> {value,kind,confidence,checked,occ:Map(fileKey -> [{page,context,rects}])}
 let busy=false, previewIdx=0, pageNo=0, focusKey=null;
@@ -587,7 +612,7 @@ function removeFile(i){
 }
 function addFiles(list){
   for(const f of list){
-    if(!/\.pdf$/i.test(f.name))continue;
+    if(!EXTS.includes(extOf(f.name)))continue;
     if(!files.some(x=>fkey(x.file)===fkey(f)))files.push({file:f,status:"",analysis:null});
   }
   renderFiles();if(files.length)selectFile(Math.min(previewIdx,files.length-1),0);
@@ -605,7 +630,7 @@ drop.addEventListener("drop",e=>{if(e.dataTransfer&&e.dataTransfer.files)addFile
 /* ---------------- options ---------------- */
 const OPT_IDS=["mode","char","label","watermark_on","watermark","watermark_opacity","whole_word",
   "case_sensitive","no_accent_folding","redact_images","verify_image","keep_metadata","watermark_footer",
-  "flatten","flatten_dpi","flatten_quality","suffix","ocr","ocr_language","ocr_dpi","min_confidence"];
+  "flatten","flatten_dpi","flatten_quality","flatten_gray","suffix","ocr","ocr_language","ocr_dpi","min_confidence"];
 function optsTo(fd){
   for(const id of OPT_IDS){const el=document.getElementById(id);
     if(el.type==="checkbox")fd.append(id,el.checked?"on":"off");else fd.append(id,el.value);}
@@ -664,16 +689,22 @@ $("#analyze").addEventListener("click",async()=>{
     setStatus(i,"proc");
     fill.style.width=(i/N*100).toFixed(1)+"%";fill.classList.add("indet");
     txt.textContent=t("analysing")+" "+(i+1)+" "+t("of")+" "+N+" · "+files[i].file.name+" ("+t("ocr_slow")+")";
-    const fd=new FormData();optsTo(fd);fd.append("pdf",files[i].file,files[i].file.name);
+    const fd=new FormData();optsTo(fd);
+    // Located for the preview only: typed terms, plus values found in the other files.
+    fd.append("terms",JSON.stringify([...new Set(customTerms().concat([...cands.values()].map(c=>c.value)))].filter(v=>v.length>=MIN_TERM).slice(0,2000)));
+    // Names found in the other files: their variants are looked for here too.
+    fd.append("names",JSON.stringify([...cands.values()].filter(c=>NAME_KINDS.includes(c.kind)).map(c=>c.value).slice(0,500)));
+    fd.append("pdf",files[i].file,files[i].file.name);
     try{
       const xhr=await post("{{ url_for('analyze') }}",fd,"json",f=>{if(f<1){fill.classList.remove("indet");fill.style.width=((i+f*0.5)/N*100).toFixed(1)+"%";}else fill.classList.add("indet");});
-      ingest(files[i].file,xhr.response);files[i].analysis=xhr.response;setStatus(i,"analysed");
+      ingest(files[i].file,xhr.response);files[i].analysis=xhr.response;
+      files[i].sizes=xhr.response.sizes||[];files[i].manual=xhr.response.manual||[];setStatus(i,"analysed");
     }catch(err){
       setStatus(i,"failed");failures.push(files[i].file.name+": "+tErr(err.message)+(err.hint?" → "+tErr(err.hint):""));
     }
   }
   fill.classList.remove("indet");prog.classList.remove("on");btn.disabled=false;busy=false;currentXhr=null;
-  renderCands();draw();
+  applyPolicy();propagate();renderCands();selectFile(previewIdx,pageNo);
   if(failures.length)setMsg(amsg,"err",failures.join(" | "));
   else setMsg(amsg,"ok",cands.size?t("analysed_ok",{n:cands.size}):t("none_found"));
 });
@@ -684,7 +715,11 @@ function ingest(file,res){
     // One entry per value: a value matched by two rules (EMAIL and LABELED_FIELD)
     // is a single decision, filed under its most confident rule.
     const key=ckey(c.value);let e=cands.get(key);
-    if(!e){e={value:c.value,kind:c.kind,confidence:c.confidence,checked:c.confidence!=="low",occ:new Map()};cands.set(key,e);}
+    if(!e){
+      const parent=c.parent?cands.get(ckey(c.parent)):null;
+      e={value:c.value,kind:c.kind,confidence:c.confidence,occ:new Map(),parent:c.parent||null,touched:false,
+         checked:parent?parent.checked:c.confidence!=="low"};
+      cands.set(key,e);}
     else if(CONF_ORDER[c.confidence]>CONF_ORDER[e.confidence]){e.kind=c.kind;e.confidence=c.confidence;
       if(c.confidence!=="low")e.checked=true;}
     const prev=e.occ.get(k)||[];
@@ -717,7 +752,7 @@ function renderCands(){
     const gcb=document.createElement("input");gcb.type="checkbox";
     const on=items.filter(([,c])=>c.checked).length;
     gcb.checked=on===items.length;gcb.indeterminate=on>0&&on<items.length;
-    gcb.onchange=()=>{items.forEach(([,c])=>c.checked=gcb.checked);renderCands();draw();};
+    gcb.onchange=()=>{items.forEach(([,c])=>{c.checked=gcb.checked;c.touched=true;});propagate();renderCands();draw();};
     const name=document.createElement("span");name.className="mono";name.textContent=kind;
     const d=document.createElement("span");d.className="d";d.textContent=t("kd_"+kind);
     const conf=document.createElement("span");conf.className="conf "+items[0][1].confidence;conf.textContent=items[0][1].confidence;
@@ -725,15 +760,18 @@ function renderCands(){
     for(const [key,c] of items){
       if(c.checked)ticked++;
       const row=document.createElement("div");row.className="c"+(key===focusKey?" focus":"");
+      row.tabIndex=0;row.dataset.key=key;
       const cb=document.createElement("input");cb.type="checkbox";cb.checked=c.checked;
       cb.onclick=e=>e.stopPropagation();
-      cb.onchange=()=>{c.checked=cb.checked;renderCands();draw();};
+      cb.onchange=()=>{setChecked(key,cb.checked);};
       const body=document.createElement("div");body.className="body";
       const v=document.createElement("div");v.className="v";v.textContent=c.value;
       const ctx=document.createElement("div");ctx.className="ctx";
       const first=[...c.occ.values()][0][0];
       ctxNode(ctx,first?first.context:"");
       body.append(v,ctx);
+      if(c.parent){const of=document.createElement("div");of.className="of";
+        of.textContent=t("form_of")+" « "+c.parent+" »";body.appendChild(of);}
       const meta=document.createElement("div");meta.className="meta";
       meta.textContent=t("occ_n",{n:countOf(c)})+(files.length>1?" · "+c.occ.size+"/"+files.length:"");
       row.append(cb,body,meta);
@@ -743,16 +781,90 @@ function renderCands(){
     candsEl.appendChild(g);
   }
   $("#ccount").textContent=t("found",{n:list.length,s:ticked});
+  $("#kbhint").hidden=false;
+  if(keepFocus){const el=candsEl.querySelector('[data-key="'+CSS.escape(keepFocus)+'"]');if(el)el.focus();keepFocus=null;}
 }
+let keepFocus=null;
+function setChecked(key,value){
+  const c=cands.get(key);if(!c)return;c.checked=value;c.touched=true;propagate();renderCands();draw();}
+// A variant follows its name until the user decides it on its own.
+function propagate(){
+  for(const c of cands.values()){
+    if(!c.parent||c.touched)continue;
+    const p=cands.get(ckey(c.parent));if(p)c.checked=p.checked;}
+}
+candsEl.addEventListener("keydown",e=>{
+  const row=e.target.closest&&e.target.closest(".c");if(!row)return;
+  const key=row.dataset.key,c=cands.get(key);if(!c)return;
+  const rows=[...candsEl.querySelectorAll(".c")],i=rows.indexOf(row);
+  const go=j=>{if(rows[j]){e.preventDefault();rows[j].focus();focusCand(rows[j].dataset.key,true);}};
+  const k=e.key.toLowerCase();
+  if(k==="arrowdown"||k==="j")return go(i+1);
+  if(k==="arrowup"||k==="k")return go(i-1);
+  let changed=false;
+  if(k===" "){c.checked=!c.checked;c.touched=true;changed=true;}
+  else if(k==="y"||k==="n"){c.checked=k==="y";c.touched=true;changed=true;}
+  else if(k==="t"||k==="i"){for(const x of cands.values())if(x.kind===c.kind){x.checked=k==="t";x.touched=true;}changed=true;}
+  if(!changed)return;
+  e.preventDefault();keepFocus=(k==="y"||k==="n")&&rows[i+1]?rows[i+1].dataset.key:key;
+  propagate();renderCands();draw();
+});
 function ctxNode(el,text){  // "...left[value]right..." -> text + <mark>
   const m=text.match(/^(.*?)\[(.*)\](.*)$/s);
   if(!m){el.textContent=text;return;}
   const mk=document.createElement("mark");mk.textContent=m[2];
   el.append(document.createTextNode(m[1]),mk,document.createTextNode(m[3]));
 }
-$("#checkall").onclick=()=>{for(const c of cands.values())c.checked=true;renderCands();draw();};
-$("#uncheckall").onclick=()=>{for(const c of cands.values())c.checked=false;renderCands();draw();};
-function focusCand(key){
+$("#checkall").onclick=()=>{for(const c of cands.values()){c.checked=true;c.touched=true;}renderCands();draw();};
+$("#uncheckall").onclick=()=>{for(const c of cands.values()){c.checked=false;c.touched=true;}renderCands();draw();};
+
+/* ---------------- decision file (same format as the CLI's --policy) ---------------- */
+// Read and written in the browser only: never sent to the server.
+let policy=null;
+const foldKey=s=>s.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/\s+/g," ").trim();
+function customTerms(){const out=[];for(const line of $("#custom").value.split(/\r?\n/)){const s=line.trim();if(s)out.push(s);}return out;}
+function applyPolicy(){
+  if(!policy)return;
+  const analysed=files.some(f=>f.analysis);
+  const red=new Set(policy.redact.map(foldKey)),ign=new Set(policy.ignore.map(foldKey));
+  for(const c of cands.values()){
+    const k=foldKey(c.value);
+    if(red.has(k))c.checked=true;else if(ign.has(k))c.checked=false;
+    else if(policy.kind_rules[c.kind]==="always")c.checked=true;
+    else if(policy.kind_rules[c.kind]==="never")c.checked=false;
+    else continue;
+    c.touched=true;
+  }
+  // Values to redact that the detection did not propose go to the manual list.
+  const known=new Set([...cands.values()].map(c=>foldKey(c.value)).concat(customTerms().map(foldKey)));
+  const extra=policy.redact.filter(v=>!known.has(foldKey(v)));
+  if(analysed&&extra.length)$("#custom").value=($("#custom").value.trim()?$("#custom").value.trim()+"\n":"")+extra.join("\n");
+}
+$("#pimport").onclick=()=>$("#pfile_in").click();
+$("#pfile_in").addEventListener("change",async()=>{
+  const f=$("#pfile_in").files[0];$("#pfile_in").value="";if(!f)return;
+  try{
+    const d=JSON.parse(await f.text());
+    if(!d||typeof d!=="object"||!Array.isArray(d.redact||[])||!Array.isArray(d.ignore||[]))throw 0;
+    policy={redact:(d.redact||[]).filter(x=>typeof x==="string"),ignore:(d.ignore||[]).filter(x=>typeof x==="string"),
+            kind_rules:(d.kind_rules&&typeof d.kind_rules==="object")?d.kind_rules:{}};
+    applyPolicy();propagate();renderCands();draw();
+    setMsg($("#amsg"),"ok",t("p_imported",{r:policy.redact.length,i:policy.ignore.length}));
+  }catch(_){setMsg($("#amsg"),"err",t("p_bad"));}
+});
+$("#pexport").onclick=()=>{
+  const red=new Map(),ign=new Map();
+  const put=(m,v)=>{const k=foldKey(v);if(!m.has(k))m.set(k,v);};
+  if(policy){policy.redact.forEach(v=>put(red,v));policy.ignore.forEach(v=>put(ign,v));}
+  for(const c of cands.values()){const k=foldKey(c.value);
+    if(c.checked){ign.delete(k);put(red,c.value);}else{red.delete(k);put(ign,c.value);}}
+  customTerms().forEach(v=>{ign.delete(foldKey(v));put(red,v);});
+  const sort=a=>[...a.values()].sort((x,y)=>x.localeCompare(y,undefined,{sensitivity:"base"}));
+  const data={version:1,redact:sort(red),ignore:sort(ign),kind_rules:policy?policy.kind_rules:{}};
+  download(new Blob([JSON.stringify(data,null,2)+"\n"],{type:"application/json"}),"pii.json");
+  setMsg($("#amsg"),"info",t("p_exported"));
+};
+function focusCand(key,quiet){
   const c=cands.get(key);if(!c)return;focusKey=key;
   let fi=files.findIndex(x=>c.occ.has(fkey(x.file)));
   const cur=files[previewIdx]&&c.occ.get(fkey(files[previewIdx].file));
@@ -760,7 +872,8 @@ function focusCand(key){
   if(fi<0)return;
   const occ=c.occ.get(fkey(files[fi].file));
   const onPage=occ.find(o=>o.page===pageNo);
-  renderCands();
+  if(!quiet){keepFocus=key;renderCands();}
+  else candsEl.querySelectorAll(".c").forEach(r=>r.classList.toggle("focus",r.dataset.key===key));
   selectFile(fi,(fi===previewIdx&&onPage)?pageNo:occ[0].page);
 }
 
@@ -778,6 +891,14 @@ function dropDoc(k){const p=docs.get(k);if(p)p.then(d=>d.destroy()).catch(()=>{}
   for(const rk of [...renders.keys()])if(rk.startsWith(k+"#"))renders.delete(rk);}
 async function renderPage(f,n){
   const rk=fkey(f)+"#"+n;if(renders.has(rk))return renders.get(rk);
+  const type=typeOf(f);
+  if(type==="docx")return {empty:"no_preview_docx",w:820,h:1160,scale:null,pages:1};
+  if(type==="image"){
+    let bmp;try{bmp=await createImageBitmap(f);}catch(_){return {empty:"no_preview_img",w:820,h:1160,scale:null,pages:1};}
+    const BW=820,oc=document.createElement("canvas");oc.width=BW;oc.height=Math.round(BW*bmp.height/bmp.width);
+    oc.getContext("2d").drawImage(bmp,0,0,oc.width,oc.height);
+    const res={canvas:oc,w:oc.width,h:oc.height,scale:null,pages:1};renders.set(rk,res);return res;
+  }
   const doc=await getDoc(f);const page=await doc.getPage(n+1);
   const vp1=page.getViewport({scale:1}),BW=820,scale=BW/vp1.width,vp=page.getViewport({scale});
   const oc=document.createElement("canvas");oc.width=Math.round(vp.width);oc.height=Math.round(vp.height);
@@ -790,7 +911,7 @@ async function selectFile(i,n){
   previewIdx=i;pageNo=n||0;renderFiles();
   const tok=++drawToken;
   const it=files[i];
-  if(!it||!window.pdfjsLib){current=null;draw();return;}
+  if(!it||(!window.pdfjsLib&&typeOf(it.file)==="pdf")){current=null;draw();return;}
   try{const r=await renderPage(it.file,pageNo);if(tok!==drawToken)return;current=r;}
   catch(_){if(tok!==drawToken)return;current=null;}
   draw();
@@ -807,16 +928,29 @@ function draw(){
   const W=current?current.w:820,H=current?current.h:1160;
   if(pv.width!==W)pv.width=W;if(pv.height!==H)pv.height=H;
   ctx.fillStyle="#fff";ctx.fillRect(0,0,W,H);
-  if(current)ctx.drawImage(current.canvas,0,0);else drawMock(W,H);
+  if(current&&current.canvas)ctx.drawImage(current.canvas,0,0);
+  else if(current&&current.empty){ctx.fillStyle="#6a7078";ctx.font="22px system-ui,sans-serif";ctx.textAlign="center";
+    ctx.fillText(t(current.empty),W/2,H/2);ctx.textAlign="start";}
+  else drawMock(W,H);
   $("#pinfo").textContent=current?(t("page")+" "+(pageNo+1)+"/"+current.pages):"–";
   $("#prev").disabled=!current||pageNo<=0;$("#next").disabled=!current||pageNo>=current.pages-1;
   $("#pfile").textContent=files[previewIdx]?files[previewIdx].file.name:"";
-  if(current&&files[previewIdx])drawAreas(fkey(files[previewIdx].file),current.scale);
-  if($("#watermark_on").checked)drawWatermark(W,H,current?current.scale:W/595);
+  const it=files[previewIdx];
+  // Image pages: the scale comes from the page size reported by the analysis.
+  const s=current&&(current.scale||(current.canvas&&it&&it.sizes&&it.sizes[pageNo]?W/it.sizes[pageNo][0]:null));
+  if(s&&it)drawAreas(fkey(it.file),s,it.manual||[]);
+  if($("#watermark_on").checked&&!(current&&current.empty))drawWatermark(W,H,s||W/595);
 }
-function drawAreas(k,s){
+function drawAreas(k,s,manual){
   const mode=$("#mode").value,ch=($("#char").value||"*")[0],lab=$("#label").value||"[REDACTED]";
-  for(const [key,c] of cands){
+  // Located values are drawn when typed by hand or ticked as a candidate, and
+  // only where the detection itself did not already report them.
+  const typed=new Set(customTerms().map(foldKey));
+  for(const c of cands.values())if(c.checked)typed.add(foldKey(c.value));
+  const own=new Set([...cands.values()].filter(c=>c.occ.has(k)).map(c=>foldKey(c.value)));
+  const entries=[...cands].concat(manual.filter(m=>typed.has(foldKey(m.value))&&!own.has(foldKey(m.value)))
+    .map(m=>["manual:"+m.value,{value:m.value,checked:true,occ:new Map([[k,m.occurrences]])}]));
+  for(const [key,c] of entries){
     const occ=c.occ.get(k);if(!occ)continue;
     for(const o of occ){if(o.page!==pageNo)continue;
       for(const r of o.rects){
@@ -892,8 +1026,7 @@ function cdName(xhr,fallback){const cd=xhr.getResponseHeader("Content-Dispositio
 /* ---------------- 3. redact ---------------- */
 function chosenTerms(){
   const out=[];for(const c of cands.values())if(c.checked)out.push(c.value);
-  for(const line of $("#custom").value.split(/\r?\n/)){const s=line.trim();if(s)out.push(s);}
-  return [...new Set(out)];
+  return [...new Set(out.concat(customTerms()))];
 }
 function renderResult(name,rep,err){
   const li=document.createElement("li");const tl=document.createElement("div");tl.className="t";
@@ -936,7 +1069,7 @@ go.addEventListener("click",async()=>{
     try{
       const xhr=await post(go.form?go.form.action:"{{ url_for('redact') }}",fd,"blob",p=>paint(i,p*0.4));
       let rep={};try{rep=JSON.parse(xhr.getResponseHeader("X-RedactEz-Report")||"{}");}catch(_){}
-      const name=cdName(xhr,f.name.replace(/\.pdf$/i,"")+".redacted.pdf");
+      const name=cdName(xhr,f.name.replace(/(\.[^.]+)$/,".redacted$1"));
       results.push({name,blob:xhr.response});renderResult(name,rep,null);setStatus(i,"done");
     }catch(err){
       if(err.message==="__cancel__"){setStatus(i,"queued");break;}
@@ -951,7 +1084,7 @@ go.addEventListener("click",async()=>{
   if(results.length===1&&!failures.length){download(results[0].blob,results[0].name);setMsg(msg,"ok",t("done"));return;}
   ptext.textContent=t("zipping");prog.classList.add("on");pfill.style.width="100%";
   const entries=[],used=new Set();
-  for(const r of results){let nm=r.name,n=1;while(used.has(nm))nm=r.name.replace(/\.pdf$/i,"_"+(n++)+".pdf");used.add(nm);
+  for(const r of results){let nm=r.name,n=1;while(used.has(nm))nm=r.name.replace(/(\.[^.]+)$/,"_"+(n++)+"$1");used.add(nm);
     entries.push({name:nm,data:new Uint8Array(await r.blob.arrayBuffer())});}
   download(zipStore(entries),"redactez_"+(($("#suffix").value||"redacted").replace(/[^\w.\-]+/g,"_"))+".zip");
   prog.classList.remove("on");
