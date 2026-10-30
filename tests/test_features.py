@@ -195,7 +195,10 @@ class TestOutputPaths(unittest.TestCase):
         folder = self.tmp / "documents"
         folder.mkdir()
         root = default_output_root([folder], ".redacted")
-        self.assertEqual(root, self.tmp / "documents.redacted")
+        # The root is resolved (so "." has a name to suffix): compare resolved
+        # paths, the temp dir may sit behind a symlink (macOS /var) or a short
+        # name (Windows RUNNER~1).
+        self.assertEqual(root, (self.tmp / "documents.redacted").resolve())
 
     def test_single_file_default_keeps_suffix(self):
         src = self.tmp / "a.pdf"
