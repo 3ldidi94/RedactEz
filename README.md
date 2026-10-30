@@ -30,64 +30,6 @@ and account numbers no longer exist in the file. Select the text, copy it, run
 
 ---
 
-## How it works
-
-```mermaid
-flowchart TD
-    A["PDF, Word or image file,<br/>or a directory"] --> B{"Terms given<br/>with -s ?"}
-
-    B -- yes --> P["Policy<br/>(terms to redact)"]
-    B -- no --> C["Read pages<br/>text + position of every character"]
-
-    C --> D{"Page has a<br/>text layer?"}
-    D -- no --> E["OCR (Tesseract)<br/>reconstructs text and positions"]
-    D -- yes --> F["Detection rules<br/>email, IBAN, SSN, phone, address…"]
-    E --> F
-
-    F --> G["Candidates<br/>value + context + confidence"]
-    G --> H["Interactive prompt<br/>y / n / all-of-type / ignore-type"]
-    H --> P
-
-    P --> I["Redact each page"]
-    I --> J["Scrub form fields, annotations,<br/>links, bookmarks, metadata"]
-    J --> K["Stamp watermark"]
-    K --> L{"Any area<br/>over an image?"}
-    L -- yes --> M["Verify text, then<br/>flatten to raster"]
-    L -- no --> N["Verify text"]
-    M --> O["Redacted copy<br/>+ optional JSON report"]
-    N --> O
-
-    style A fill:#e8f0fe,stroke:#4a75c7
-    style O fill:#e6f4ea,stroke:#3d8a5a
-    style E fill:#fff4e5,stroke:#c78a3d
-    style M fill:#fdece9,stroke:#c74a4a
-```
-
-The security-critical part is what happens to a single page:
-
-```mermaid
-flowchart TD
-    A["Matches found on the page"] --> B["Merge rectangles<br/>per line"]
-    B --> C["Pass 1 — TEXT<br/>area shrunk by 18%"]
-    C --> C1["Why: the engine deletes every glyph<br/>touching the area, and consecutive<br/>line boxes touch each other"]
-    C --> D{"Does an area sit<br/>on an image?"}
-
-    D -- "no<br/>(pure text page)" --> G["Draw truncation pattern"]
-    D -- "yes<br/>(scan, or scan already OCR'd)" --> E["Pass 2 — PIXELS<br/>area grown by 15% of line height"]
-    E --> E1["Why: erasure covers exactly the<br/>rectangle, and glyphs in the image<br/>overflow the measured box"]
-    E --> G
-
-    G --> H{"Pixels erased<br/>on this document?"}
-    H -- yes --> I["Flatten: every page becomes an image<br/>→ no object left to remove"]
-    H -- no --> J["Keep the text layer<br/>→ output stays selectable"]
-
-    style C fill:#e8f0fe,stroke:#4a75c7
-    style E fill:#fdece9,stroke:#c74a4a
-    style I fill:#fdece9,stroke:#c74a4a
-```
-
----
-
 ## Table of contents
 
 - [Quick start](#quick-start)
@@ -102,9 +44,11 @@ flowchart TD
 - [Limits](#limits--read-before-sharing-a-document)
 - [Troubleshooting](#troubleshooting)
 - [Exit codes](#exit-codes)
+- [How it works](#how-it-works)
 - [Architecture](#architecture)
 - [Contributing](#contributing)
 - [Changelog](#changelog)
+- [GDPR note](#gdpr-note)
 
 ---
 
@@ -659,6 +603,64 @@ Result
 | `1` | at least one failure (residual term, existing output, unreadable document…) |
 | `2` | usage error (path, type, policy, invalid option) |
 | `130` | keyboard interrupt — files already written are kept |
+
+---
+
+## How it works
+
+```mermaid
+flowchart TD
+    A["PDF, Word or image file,<br/>or a directory"] --> B{"Terms given<br/>with -s ?"}
+
+    B -- yes --> P["Policy<br/>(terms to redact)"]
+    B -- no --> C["Read pages<br/>text + position of every character"]
+
+    C --> D{"Page has a<br/>text layer?"}
+    D -- no --> E["OCR (Tesseract)<br/>reconstructs text and positions"]
+    D -- yes --> F["Detection rules<br/>email, IBAN, SSN, phone, address…"]
+    E --> F
+
+    F --> G["Candidates<br/>value + context + confidence"]
+    G --> H["Interactive prompt<br/>y / n / all-of-type / ignore-type"]
+    H --> P
+
+    P --> I["Redact each page"]
+    I --> J["Scrub form fields, annotations,<br/>links, bookmarks, metadata"]
+    J --> K["Stamp watermark"]
+    K --> L{"Any area<br/>over an image?"}
+    L -- yes --> M["Verify text, then<br/>flatten to raster"]
+    L -- no --> N["Verify text"]
+    M --> O["Redacted copy<br/>+ optional JSON report"]
+    N --> O
+
+    style A fill:#e8f0fe,stroke:#4a75c7
+    style O fill:#e6f4ea,stroke:#3d8a5a
+    style E fill:#fff4e5,stroke:#c78a3d
+    style M fill:#fdece9,stroke:#c74a4a
+```
+
+The security-critical part is what happens to a single page:
+
+```mermaid
+flowchart TD
+    A["Matches found on the page"] --> B["Merge rectangles<br/>per line"]
+    B --> C["Pass 1 — TEXT<br/>area shrunk by 18%"]
+    C --> C1["Why: the engine deletes every glyph<br/>touching the area, and consecutive<br/>line boxes touch each other"]
+    C --> D{"Does an area sit<br/>on an image?"}
+
+    D -- "no<br/>(pure text page)" --> G["Draw truncation pattern"]
+    D -- "yes<br/>(scan, or scan already OCR'd)" --> E["Pass 2 — PIXELS<br/>area grown by 15% of line height"]
+    E --> E1["Why: erasure covers exactly the<br/>rectangle, and glyphs in the image<br/>overflow the measured box"]
+    E --> G
+
+    G --> H{"Pixels erased<br/>on this document?"}
+    H -- yes --> I["Flatten: every page becomes an image<br/>→ no object left to remove"]
+    H -- no --> J["Keep the text layer<br/>→ output stays selectable"]
+
+    style C fill:#e8f0fe,stroke:#4a75c7
+    style E fill:#fdece9,stroke:#c74a4a
+    style I fill:#fdece9,stroke:#c74a4a
+```
 
 ---
 
